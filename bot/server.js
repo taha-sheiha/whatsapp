@@ -1,7 +1,7 @@
 const express = require('express');
-const { connectToWhatsApp } = require('./whatsapp/connection');
-const { handleIncomingMessage } = require('./whatsapp/listener');
-const logger = require('./whatsapp/logger');
+const { connectToWhatsApp } = require('./connection');
+const { handleIncomingMessage } = require('./listener');
+const logger = require('./logger');
 const path = require('path');
 
 const app = express();
