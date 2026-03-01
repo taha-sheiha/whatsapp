@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CountaNeura Desktop - واجهة التحكم</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Outfit:wght@300;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">CN</div>
+                <span>نيورا</span>
+            </div>
+            <nav>
+                <button class="nav-item active" data-view="dashboard">لوحة التحكم</button>
+                <button class="nav-item" data-view="settings">الإعدادات</button>
+                <button class="nav-item" data-view="logs">السجلات</button>
+            </nav>
+            <div class="status-indicator">
+                <div class="dot" id="status-dot"></div>
+                <span id="status-text">جاري الاتصال...</span>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="view-title">لوحة التحكم الذكية</h1>
+                <div class="user-profile">
+                    <span id="bot-name">Neura V2.5</span>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <section class="content-view active" id="dashboard-view">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>الرسائل اليومية</h3>
+                        <p class="stat-value" id="stat-daily">٠</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>سرعة الرد</h3>
+                        <p class="stat-value" id="stat-speed">٠.٠ ث</p>
+                    </div>
+                </div>
+
+                <div class="qr-container" id="qr-container">
+                    <h2>ربط الواتساب</h2>
+                    <div class="qr-box">
+                        <div id="qr-placeholder">
+                            <img id="qr-image" src="" alt="QR Code" style="display:none;">
+                            <div class="qr-loading" id="qr-loading-text">جاري توليد الكود...</div>
+                            <div class="scan-line"></div>
+                        </div>
+                        <p>افتح الواتساب من موبايلك وامسح الكود لتفعيل البوت</p>
+                    </div>
+                </div>
+
+                <div class="success-container" id="success-container" style="display:none;">
+                    <div class="success-icon">✅</div>
+                    <h2>البوت متصل ويعمل بنجاح</h2>
+                    <p>يمكنك الآن استقبال الرسائل والرد عليها آلياً</p>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section class="content-view" id="settings-view">
+                <div class="settings-card glass">
+                    <h2>إعدادات النظام</h2>
+                    <div class="form-group">
+                        <label>رابط الـ AI API (Cloudflare Worker)</label>
+                        <input type="text" id="api-url-input" placeholder="https://your-worker.workers.dev/chat">
+                    </div>
+                    <div class="action-buttons">
+                        <button class="save-btn" id="save-settings">حفظ التغييرات</button>
+                        <button class="clear-btn" id="clear-session">تسجيل الخروج (مسح البيانات)</button>
+                    </div>
+                    <p class="save-status" id="save-status"></p>
+                </div>
+            </section>
+
+            <!-- Logs View -->
+            <section class="content-view" id="logs-view">
+                <div class="logs-container glass">
+                    <h2>آخر الرسائل</h2>
+                    <div class="logs-list" id="logs-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Check for electronAPI immediately
+        if (!window.electronAPI) {
+            document.body.innerHTML = `<div style="padding: 50px; text-align: center; color: white;">
+                <h1>خطأ في التحميل ❌</h1>
+                <p>تعذر العثور على جسر التواصل (electronAPI). قد يكون هناك مشكلة في إعدادات البرنامج.</p>
+                <p>تأكد من تشغيل البرنامج باستخدام npm start.</p>
+            </div>`;
+        } else {
+            const views = document.querySelectorAll('.content-view');
+            const navItems = document.querySelectorAll('.nav-item');
+            const viewTitle = document.querySelector('#view-title');
+
+            // View Switching
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const targetView = item.getAttribute('data-view');
+                    navItems.forEach(ni => ni.classList.remove('active'));
+                    item.classList.add('active');
+                    views.forEach(v => v.classList.remove('active'));
+                    document.getElementById(`${targetView}-view`).classList.add('active');
+                    const titles = { 'dashboard': 'لوحة التحكم الذكية', 'settings': 'إعدادات النظام', 'logs': 'سجلات العمليات' };
+                    viewTitle.innerText = titles[targetView];
+                });
+            });
+
+            // State Elements
+            const qrImg = document.getElementById('qr-image');
+            const qrLoadingText = document.getElementById('qr-loading-text');
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const qrContainer = document.getElementById('qr-container');
+            const successContainer = document.getElementById('success-container');
+
+            // Listen for WhatsApp Updates
+            window.electronAPI.onWhatsAppUpdate((update) => {
+                if (update.type === 'qr') {
+                    qrImg.src = update.data;
+                    qrImg.style.display = 'block';
+                    qrLoadingText.style.display = 'none';
+                } else if (update.type === 'status' && update.data === 'connected') {
+                    statusDot.className = 'dot online';
+                    statusText.innerText = 'البوت متصل';
+                    qrContainer.style.display = 'none';
+                    successContainer.style.display = 'flex';
+                } else if (update.type === 'status' && update.data === 'disconnected') {
+                    statusDot.className = 'dot';
+                    statusText.innerText = 'غير متصل';
+                    qrContainer.style.display = 'block';
+                    successContainer.style.display = 'none';
+                    qrImg.style.display = 'none';
+                    qrLoadingText.style.display = 'block';
+                }
+            });
+
+            // Listen for Stats Updates
+            window.electronAPI.onStatsUpdate((data) => {
+                document.getElementById('stat-daily').innerText = data.daily.toLocaleString('ar-EG');
+                document.getElementById('stat-speed').innerText = data.speed + ' ث';
+            });
+
+            // Listen for Logs
+            const logsList = document.getElementById('logs-list');
+            window.electronAPI.onNewLog((log) => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.innerHTML = `
+                    <span class="log-time">${log.time}</span>
+                    <span class="log-text">${log.text}</span>
+                `;
+                logsList.prepend(logEntry);
+                if (logsList.children.length > 50) logsList.lastElementChild.remove();
+            });
+
+            // Initialize Settings
+            const apiInput = document.getElementById('api-url-input');
+            const saveBtn = document.getElementById('save-settings');
+            const saveStatus = document.getElementById('save-status');
+
+            window.electronAPI.getConfig().then(config => {
+                apiInput.value = config.apiUrl || '';
+            });
+
+            saveBtn.addEventListener('click', async () => {
+                const res = await window.electronAPI.saveConfig({ apiUrl: apiInput.value });
+                if (res.success) {
+                    saveStatus.innerText = 'تم الحفظ بنجاح ✅';
+                    setTimeout(() => saveStatus.innerText = '', 3000);
+                }
+            });
+
+            document.getElementById('clear-session').addEventListener('click', async () => {
+                if (confirm('هل أنت متأكد من مسح بيانات الجلسة؟ سيتم إغلاق البرنامج وتحتاج لربط الواتساب مجدداً.')) {
+                    await window.electronAPI.clearSession();
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

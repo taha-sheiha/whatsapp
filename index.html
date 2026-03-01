@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CountaNeura - AI Solutions</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="chat-container" class="glass-card">
+        <!-- New Header with Logo -->
+        <header class="chat-header">
+            <div class="header-logo-group">
+                <img src="logo.png" alt="CountaNeura Logo" class="brand-logo">
+                <div>
+                    <h2 class="brand-title">CountaNeura AI</h2>
+                    <p class="brand-subtitle">مستشارك الذكي - متاح 24/7</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="toggle-fullscreen" class="icon-btn" title="توسيع الشاشة">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
+                </button>
+                <div class="header-status">
+                    <span class="status-dot"></span> متصل
+                </div>
+            </div>
+        </header>
+
+        <!-- Messages Area -->
+        <div id="chat-messages">
+            <div class="message-wrapper ai-wrapper">
+                <img src="logo.png" alt="AI Agent" class="chat-avatar">
+                <div class="message ai-msg">مساء الخير يا فندم! أنا Neura من CountaNeura. <strong>نتشرف بمعرفة اسم
+                        حضرتك؟</strong></div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading-indicator" style="display:none;">
+            <div class="dot-typing"></div>
+        </div>
+
+        <!-- Input Area -->
+        <form id="chat-input-area">
+            <button type="button" id="clear-chat" class="icon-btn" title="محادثة جديدة">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+            </button>
+            <input type="text" id="user-input" placeholder="اكتب رسالتك لـ Neura..." required autocomplete="off">
+            <button type="submit" class="send-btn" title="إرسال">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = 'https://ai.tahasheiha.workers.dev';
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-input-area');
+        const userInput = document.getElementById('user-input');
+        const loading = document.getElementById('loading');
+        let chatHistory = [];
+
+        // --- CHAT SESSION & POLLING ---
+        function getChatId() {
+            let id = localStorage.getItem('neura_chat_id');
+            if (!id) {
+                id = 'web-' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('neura_chat_id', id);
+            }
+            return id;
+        }
+        let chatId = getChatId();
+
+        async function pollReplies() {
+            try {
+                const res = await fetch(`${API_URL}/admin/check-reply?chatId=${chatId}`);
+                if (res.ok) {
+                    const data = await res.json();
+
+                    // Handle Session Closure (Reset)
+                    if (data.status === 'closed') {
+                        localStorage.removeItem('neura_chat_id');
+                        window.location.reload();
+                        return;
+                    }
+
+                    if (data.replies && data.replies.length > 0) {
+                        data.replies.forEach(r => {
+                            const isNew = !Array.from(document.querySelectorAll('.ai-msg')).some(el => el.innerText.includes(r.human_reply));
+                            if (isNew) addMessage(r.human_reply, 'ai', true);
+                        });
+                    }
+                }
+            } catch (e) { }
+        }
+        setInterval(pollReplies, 3000);
+
+        function addMessage(text, role, isHuman = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper ${role === 'user' ? 'user-wrapper' : 'ai-wrapper'}`;
+
+            let messageHtml = '';
+
+            // Format bold text automatically (Basic Markdown)
+            let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+            if (isHuman) formattedText = `<div style="color:var(--secondary); font-size:0.7rem; margin-bottom:4px;">[رد من الإدارة]</div>` + formattedText;
+
+            if (role === 'ai') {
+                messageHtml = `
+                    <img src="logo.png" alt="AI Agent" class="chat-avatar">
+                    <div class="message ai-msg">${formattedText}</div>
+                `;
+            } else {
+                messageHtml = `
+                    <div class="message user-msg">${formattedText}</div>
+                `;
+            }
+
+            wrapper.innerHTML = messageHtml;
+            chatMessages.appendChild(wrapper);
+
+            // Smooth scroll to bottom
+            setTimeout(() => {
+                chatMessages.scrollTo({
+                    top: chatMessages.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, 50);
+
+            if (!isHuman) {
+                chatHistory.push({ role: role === 'user' ? 'user' : 'assistant', content: text });
+                if (chatHistory.length > 10) chatHistory.shift();
+            }
+        }
+
+        document.getElementById('toggle-fullscreen').onclick = () => {
+            document.getElementById('chat-container').classList.toggle('full-screen');
+        };
+
+        document.getElementById('clear-chat').onclick = () => {
+            if (confirm('هل تريد بدء محادثة جديدة وتصفير السجل؟')) {
+                localStorage.removeItem('neura_chat_id');
+                window.location.reload();
+            }
+        };
+
+        chatForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const question = userInput.value.trim();
+            if (!question) return;
+
+            const historyToSend = [...chatHistory];
+            addMessage(question, 'user');
+            userInput.value = '';
+            loading.style.display = 'flex';
+
+            // Scroll to show loading indicator
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+
+            try {
+                const res = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, history: historyToSend, chatId })
+                });
+
+                if (!res.ok) throw new Error('فشل الاتصال بالخادم');
+
+                const data = await res.json();
+
+                if (data.reply) {
+                    addMessage(data.reply, 'ai');
+                } else if (data.paused) {
+                    // Handled gracefully in addMessage or locally
+                } else {
+                    addMessage('عذراً، حدث خطأ غير متوقع في التواصل مع نيورا.', 'ai');
+                }
+            } catch (err) {
+                console.error(err);
+                addMessage('للأسف واجهنا مشكلة في الاتصال بالخادم. يرجى المحاولة لاحقاً.', 'ai');
+            } finally {
+                loading.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+
+</html>

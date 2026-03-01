@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production / Build
+dist/
+build_output/
+build/
+*.exe
+*.AppImage
+*.dmg
+
+# Environment / Secret
+.env
+.env.local
+.dev.vars
+.wrangler/
+
+# WhatsApp Session (IMPORTANT: Don't upload your login!)
+session_data/
+auth_info_multi/
+
+# Misc
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log

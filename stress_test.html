@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CountaNeura - اختبار الضغط (Stress Test)</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #a855f7;
+            --bg: #0f172a;
+            --text: #f8fafc;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: var(--secondary);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            padding: 0.8rem;
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.02);
+            filter: brightness(1.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+
+        #log {
+            margin-top: 2rem;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 16px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 2px;
+        }
+
+        .success {
+            color: #22c55e;
+        }
+
+        .error {
+            color: #ef4444;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>🚀 CountaNeura Stress Test</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>إجمالي الطلبات (Total Requests)</label>
+                <input type="number" id="totalReqs" value="30">
+            </div>
+            <div class="control-group">
+                <label>التزامن (Concurrency)</label>
+                <input type="number" id="concurrency" value="5">
+            </div>
+        </div>
+
+        <button id="startBtn" class="btn">ابدأ الهجوم الاستاتيكي ⚡</button>
+
+        <div class="stats">
+            <div class="stat-card">
+                <label>إجمالي المحاولات</label>
+                <div id="stat-total" class="stat-value">0</div>
+            </div>
+            <div class="stat-card">
+                <label>نجاح ✅</label>
+                <div id="stat-success" class="stat-value success">0</div>
+            </div>
+            <div class="stat-card">
+                <label>فشل ❌</label>
+                <div id="stat-error" class="stat-value error">0</div>
+            </div>
+        </div>
+
+        <div id="log">
+            <div style="opacity:0.5; text-align:center;">سجل العمليات سيظهر هنا...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://ai.tahasheiha.workers.dev/chat';
+        const startBtn = document.getElementById('startBtn');
+        const logDiv = document.getElementById('log');
+
+        let stats = { total: 0, success: 0, error: 0 };
+
+        function addLog(msg, type = '') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logDiv.prepend(entry);
+        }
+
+        function updateStats() {
+            document.getElementById('stat-total').innerText = stats.total;
+            document.getElementById('stat-success').innerText = stats.success;
+            document.getElementById('stat-error').innerText = stats.error;
+        }
+
+        async function sendRequest(id) {
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question: `اختبار ضغط رقم ${id} - هل استجابتك سريعة؟`,
+                        chatId: `stress-test-${Date.now()}-${id}`
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.reply) {
+                    stats.success++;
+                    addLog(`طلب #${id}: نجاح ✅`, 'success');
+                } else {
+                    stats.error++;
+                    addLog(`طلب #${id}: فشل (HTTP ${res.status}) - ${data.error || 'خطأ من الـ API'}`, 'error');
+                }
+            } catch (e) {
+                stats.error++;
+                addLog(`طلب #${id}: انهيار (Crash) - ${e.message}`, 'error');
+            }
+            stats.total++;
+            updateStats();
+        }
+
+        startBtn.onclick = async () => {
+            const total = parseInt(document.getElementById('totalReqs').value);
+            const limit = parseInt(document.getElementById('concurrency').value);
+
+            startBtn.disabled = true;
+            stats = { total: 0, success: 0, error: 0 };
+            logDiv.innerHTML = '';
+            updateStats();
+            addLog(`بدء اختبار الضغط: ${total} طلب، بتزامن ${limit}...`);
+
+            const pool = [];
+            for (let i = 1; i <= total; i++) {
+                const p = sendRequest(i);
+                pool.push(p);
+
+                if (pool.length >= limit) {
+                    await Promise.all(pool);
+                    pool.length = 0; // Clear for next batch
+                }
+            }
+
+            await Promise.all(pool);
+            addLog('🏁 انتهى اختبار الضغط بنجاح.');
+            startBtn.disabled = false;
+        };
+    </script>
+
+</body>
+
+</html>

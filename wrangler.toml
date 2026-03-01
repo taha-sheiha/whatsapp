@@ -1,0 +1,9 @@
+name = "neura-worker"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# إعدادات قاعدة البيانات D1
+[[d1_databases]]
+binding = "DB" # لازم يكون الاسم ده "DB" عشان متوافق مع الكود
+database_name = "neura_db"
+database_id = "ضع_هنا_الـ_ID_الخاص_بقاعدة_بياناتك"

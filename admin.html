@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CountaNeura - لوحة تحكم الإدارة</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 900px) {
+            .admin-layout {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            color: white;
+            font-size: 0.95rem;
+            margin-bottom: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--secondary);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.2);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .content-card {
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .content-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            justify-content: flex-end;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 1rem;
+        }
+
+        .btn-small {
+            padding: 0.4rem 1rem;
+            font-size: 0.8rem;
+            border-radius: 8px;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #be123c);
+            color: white;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #f87171, #be123c);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, #10b981, #047857);
+            color: white;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-edit:hover {
+            background: linear-gradient(135deg, #34d399, #047857);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        #content-category {
+            width: 100%;
+            padding: 0.8rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: white;
+        }
+
+        #content-category option {
+            background: var(--bg-dark);
+            color: white;
+        }
+
+        /* Sentiment Badges */
+        .badge-sentiment {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .sentiment-calm {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .sentiment-angry {
+            background: rgba(220, 38, 38, 0.4);
+            color: #fca5a5;
+            font-weight: 800;
+            border: 1px solid #ef4444;
+        }
+
+        .sentiment-confused {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .sentiment-unclear {
+            background: rgba(168, 85, 247, 0.2);
+            color: #a855f7;
+        }
+
+        .sentiment-neutral {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Status Pills */
+        .status-pill {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            margin-right: 5px;
+            text-transform: uppercase;
+        }
+
+        .pill-active {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .pill-paused {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .pill-closed {
+            background: rgba(107, 114, 128, 0.2);
+            color: #9ca3af;
+            border: 1px solid rgba(107, 114, 128, 0.4);
+        }
+
+        .sentiment-alert {
+            border: 2px solid #ef4444 !important;
+            background: rgba(127, 29, 29, 0.4) !important;
+            animation: pulse-urgent 1.5s infinite;
+        }
+
+        @keyframes pulse-urgent {
+            0% {
+                box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 15px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0px rgba(239, 68, 68, 0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                border-color: #ef4444;
+            }
+
+            50% {
+                opacity: 0.6;
+                border-color: transparent;
+            }
+
+            100% {
+                opacity: 1;
+                border-color: #ef4444;
+            }
+        }
+
+        /* Modal & Session Styles */
+        #history-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-body {
+            background: var(--bg-dark);
+            width: 90%;
+            max-width: 900px;
+            height: 90vh;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        #history-modal.fullscreen .modal-body {
+            width: 98vw;
+            height: 98vh;
+            max-width: none;
+            border-radius: 12px;
+        }
+
+        .history-scroll {
+            flex: 1;
+            overflow-y: auto;
+            margin: 1rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+        }
+
+        .session-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.2rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .session-card:hover {
+            border-color: var(--secondary);
+            background: rgba(255, 255, 255, 0.07);
+            transform: scale(1.01);
+        }
+
+        .status-pill {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .pill-paused {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .pill-active {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .fullscreen-inbox {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 900;
+            background: var(--bg-dark);
+            padding: 2rem;
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="max-width: 1200px; margin: 2rem auto; padding: 1rem; width: 100%;">
+        <!-- Admin Header -->
+        <header class="chat-header"
+            style="margin-bottom: 2rem; border-bottom: 2px solid var(--accent); padding-bottom: 1rem;">
+            <div class="header-logo-group">
+                <img src="logo.png" alt="CountaNeura Logo" class="brand-logo" onerror="this.style.display='none'">
+                <div>
+                    <h1 class="brand-title" style="font-size: 1.8rem;">CountaNeura Dashboard</h1>
+                    <p class="brand-subtitle">نظام إدارة المعرفة الحية (Live AI Control)</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Admin Tabs -->
+        <div
+            style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+            <button class="btn btn-primary" id="tab-kb">📚 الذاكرة</button>
+            <button class="btn btn-outline" id="tab-chats">💬 الجلسات</button>
+            <button class="btn btn-outline" id="tab-settings">⚙️ إعدادات الحسابات والذكاء</button>
+            <button class="btn btn-outline" id="tab-webhooks">📡 Webhook</button>
+            <button class="btn btn-outline" id="tab-usage">📊 الاستهلاك</button>
+        </div>
+
+        <!-- SECTION 1: Knowledge Base -->
+        <div id="section-kb" class="admin-layout">
+            <!-- Sidebar / Form -->
+            <div class="glass-card" style="align-self: start;">
+                <h3
+                    style="margin-bottom: 1.5rem; color: var(--primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+                    إضافة/تعديل عنصر</h3>
+                <form id="content-form">
+                    <input type="hidden" id="content-id">
+
+                    <label>نوع العنصر الدلالي</label>
+                    <select id="content-category" required>
+                        <option value="service" selected>🎯 خدماتنا (Services)</option>
+                        <option value="plan">💰 باقات الأسعار (Pricing Plans)</option>
+                        <option value="feature">✨ مميزات البوت (Features)</option>
+                        <option value="faq">❓ أسئلة شائعة (FAQ)</option>
+                        <option value="contact">📞 معلومات التواصل (Contact)</option>
+                    </select>
+
+                    <div id="group-title">
+                        <label id="lbl-title">العنوان / المسمى</label>
+                        <input type="text" id="content-title" required
+                            placeholder="مثال: باقة أنظمة الشركات أو رقم المبيعات">
+                    </div>
+
+                    <div id="group-desc">
+                        <label id="lbl-desc">التفاصيل (تدريب البوت)</label>
+                        <textarea id="content-description" rows="5"
+                            placeholder="اكتب هنا المعلومات الدقيقة التي سيقرأها البوت ويرد بناءً عليها..."></textarea>
+                    </div>
+
+                    <div id="group-extra">
+                        <label id="lbl-extra">معلومات إضافية (خياري)</label>
+                        <input type="text" id="content-extra" placeholder="مثال: $500/mo, +2010...">
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center;">حفظ في
+                            القاعدة</button>
+                        <button type="button" class="btn btn-danger" id="btn-cancel"
+                            style="display:none; flex: 1; justify-content: center;">إلغاء التعديل</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="glass-card" style="min-height: 500px;">
+                <h3
+                    style="margin-bottom: 1.5rem; color: var(--secondary); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+                    بيانات الذاكرة الحالية</h3>
+                <div id="loading" class="loading-indicator"
+                    style="display: flex; justify-content: center; margin: 2rem 0;">
+                    <span style="color:var(--accent)">جاري الجلب من قاعدة البيانات</span>
+                    <div class="dot-typing"></div>
+                </div>
+                <div id="content-list"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                    <!-- Items Output -->
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: Live Chats -->
+        <div id="section-chats" style="display: none;">
+            <div class="glass-card" id="inbox-card">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                    <h3 style="color: var(--secondary);">إدارة الجلسات الحية (Sessions Manager)</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-small btn-outline" id="toggle-full" title="ملء الشاشة">🔲</button>
+                        <button class="btn btn-small btn-secondary" id="refresh-logs">تحديث البيانات 🔄</button>
+                    </div>
+                </div>
+
+                <div id="logs-container"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; max-height: 70vh; overflow-y: auto; padding: 10px;">
+                    <!-- Sessions injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 6: Unified Settings & Accounts -->
+        <div id="section-settings" style="display: none;">
+            <!-- Row 1: AI Prompt -->
+            <div class="glass-card" style="margin-bottom: 2rem;">
+                <h3
+                    style="margin-bottom: 1.5rem; color: var(--primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+                    🧠 قواعد ذكاء "نيورا" (AI Personality)</h3>
+                <form id="settings-form">
+                    <label>خلفية النظام والقواعد الصارمة</label>
+                    <p style="font-size: 0.75rem; opacity: 0.6; margin-bottom: 10px;">هنا بتكتب "روح" البوت، إزاي يبيع،
+                        إزاي يتكلم، وإيه حدوده.</p>
+                    <textarea id="setting-ai-prompt"
+                        style="height: 300px; font-family: 'Courier New', Courier, monospace; font-size: 0.85rem; line-height: 1.5;"></textarea>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+                        <div>
+                            <label>Telegram Bot Token 📱</label>
+                            <input type="text" id="setting-tg-token" placeholder="توكن تليجرام من BotFather">
+                        </div>
+                        <div>
+                            <label>WhatsApp Phone Number ID 📞</label>
+                            <input type="text" id="setting-wa-phone-id" placeholder="Phone ID من Meta Developers">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="padding: 0.8rem 2rem;">حفظ إعدادات النظام
+                            والذكاء ✨</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Row 2: Meta Accounts Integration -->
+            <div class="admin-layout" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                <!-- Link New Meta Page -->
+                <div class="glass-card">
+                    <h3
+                        style="margin-bottom: 1.5rem; color: var(--secondary); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+                        🔗 ربط حساب Meta جديد (FB/IG)</h3>
+                    <form id="meta-form">
+                        <label>المنصة</label>
+                        <select id="meta-platform"
+                            style="width:100%; padding:0.8rem; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); border-radius:10px; color:white; margin-bottom:1.2rem;">
+                            <option value="facebook">Messenger (فيسبوك)</option>
+                            <option value="instagram">Instagram Direct (إنستجرام)</option>
+                        </select>
+
+                        <label>ID الحساب (Page ID)</label>
+                        <input type="text" id="meta-page-id" required placeholder="مثال: 61587829233932">
+
+                        <label>Access Token</label>
+                        <textarea id="meta-token" required placeholder="الصق مفتاح الوصول هنا..."
+                            style="width:100%; min-height:80px;"></textarea>
+
+                        <label>اسم الحساب للتعريف</label>
+                        <input type="text" id="meta-name" placeholder="مثال: خدمة العملاء">
+
+                        <button type="submit" class="btn btn-primary"
+                            style="width: 100%; justify-content: center; background: var(--secondary);">إضافة الربط الآن
+                            🚀</button>
+                    </form>
+                </div>
+
+                <!-- Linked Accounts List -->
+                <div class="glass-card">
+                    <h3
+                        style="margin-bottom: 1.5rem; color: var(--accent); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+                        📑 الحسابات المرتبطة حالياً</h3>
+                    <div id="meta-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <!-- Linked pages list -->
+                        <p style="opacity: 0.5; text-align: center;">جاري جلب الحسابات...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 5: Webhook Logs -->
+        <div id="section-webhooks" style="display: none;">
+            <div class="glass-card">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                    <h3 style="color: var(--secondary);">مراقب الـ Webhook (تشخيص الأعطال)</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-small btn-primary" id="test-webhook">تجربة الرابط (Test) 🛠️</button>
+                        <button class="btn btn-small btn-secondary" id="refresh-webhooks">تحديث السجل 🔄</button>
+                    </div>
+                </div>
+                <div id="webhook-logs-list"
+                    style="max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Logs injection -->
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: API Usage -->
+        <div id="section-usage" style="display: none;">
+            <div class="glass-card">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                    <h3 style="color: var(--secondary);">إحصائيات استهلاك الـ API والعمليات الذكية</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-small btn-accent" id="btn-reset-usage">تصفير الإحصائيات 🗑️</button>
+                        <button class="btn btn-small btn-secondary" id="refresh-usage">تحديث الإحصائيات 🔄</button>
+                    </div>
+                </div>
+                <div id="usage-container" style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: right;">
+                        <thead style="background: rgba(255,255,255,0.05);">
+                            <tr>
+                                <th style="padding: 12px; border-bottom: 1px solid var(--glass-border);">API Key (Last
+                                    4)</th>
+                                <th style="padding: 12px; border-bottom: 1px solid var(--glass-border);">Model ID</th>
+                                <th style="padding: 12px; border-bottom: 1px solid var(--glass-border);">نجاح ✅</th>
+                                <th style="padding: 12px; border-bottom: 1px solid var(--glass-border);">فشل ❌</th>
+                                <th style="padding: 12px; border-bottom: 1px solid var(--glass-border);">Error Log (آخر
+                                    خطأ)</th>
+                                <th style="padding: 12px; border-bottom: 1px solid var(--glass-border);">آخر استخدام
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="usage-list">
+                            <!-- Stats injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Conversation Manager (Modal) -->
+    <div id="history-modal">
+        <div class="modal-body">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
+                <h3 id="modal-title" style="color: var(--primary); margin: 0;">مراقب المحادثة</h3>
+                <div id="modal-controls" style="display: flex; gap: 8px;">
+                    <!-- Controls injected JS -->
+                </div>
+            </div>
+
+            <div id="history-content" class="history-scroll"></div>
+            <div id="ai-summary-box" style="display:none; margin: 10px 0;"></div>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="modal-reply-input" placeholder="اكتب رد يدوي مباشر..."
+                    style="margin-bottom:0; flex:1;">
+                <button class="btn btn-small" style="background: var(--secondary);" id="modal-send-btn">إرسال
+                    📩</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIG
+        const API_URL = 'https://ai.tahasheiha.workers.dev';
+
+        // KB LOGIC
+        const form = document.getElementById('content-form');
+        const listContainer = document.getElementById('content-list');
+        const loader = document.getElementById('loading');
+        const btnCancel = document.getElementById('btn-cancel');
+        const idField = document.getElementById('content-id');
+        const catField = document.getElementById('content-category');
+        const titleField = document.getElementById('content-title');
+        const descField = document.getElementById('content-description');
+        const extraField = document.getElementById('content-extra');
+
+        function resetForm() {
+            idField.value = ''; titleField.value = '';
+            descField.value = ''; extraField.value = '';
+            btnCancel.style.display = 'none';
+            catField.dispatchEvent(new Event('change'));
+        }
+        btnCancel.onclick = resetForm;
+
+        function updateFormUI() {
+            const cat = catField.value;
+            const groups = { title: document.getElementById('group-title'), desc: document.getElementById('group-desc'), extra: document.getElementById('group-extra') };
+            const labels = { title: document.getElementById('lbl-title'), desc: document.getElementById('lbl-desc'), extra: document.getElementById('lbl-extra') };
+
+            Object.values(groups).forEach(g => g.style.display = 'block');
+            titleField.required = true; descField.required = true; extraField.required = false;
+
+            if (cat === 'service' || cat === 'feature') {
+                labels.title.innerText = 'العنوان'; labels.desc.innerText = 'التفاصيل'; groups.extra.style.display = 'none';
+            } else if (cat === 'plan') {
+                labels.title.innerText = 'اسم الباقة'; labels.desc.innerText = 'المزايا'; labels.extra.innerText = 'السعر';
+            } else if (cat === 'faq') {
+                labels.title.innerText = 'السؤال'; labels.desc.innerText = 'الإجابة'; groups.extra.style.display = 'none';
+            } else if (cat === 'contact') {
+                labels.title.innerText = 'الاسم'; labels.extra.innerText = 'الرقم/الإيميل'; groups.desc.style.display = 'none'; descField.required = false; extraField.required = true;
+            }
+        }
+        catField.addEventListener('change', updateFormUI);
+        updateFormUI();
+
+        async function fetchContent() {
+            loader.style.display = 'flex';
+            listContainer.innerHTML = '';
+            try {
+                const res = await fetch(`${API_URL}/content`);
+                const data = await res.json();
+                if (data.length === 0) { listContainer.innerHTML = '<p style="opacity:0.5; grid-column:1/-1; text-align:center;">لا توجد بيانات.</p>'; return; }
+                data.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'content-card';
+                    card.innerHTML = `
+                        <div>
+                            <div class="card-badge">${item.category}</div>
+                            <h4 style="margin-top:1.5rem; color:#fff;">${item.title}</h4>
+                            <p style="font-size:0.8rem; margin:1rem 0; opacity:0.8;">${item.description || ''}</p>
+                            ${item.extra_data ? `<small style="display:block; color:var(--accent)">${item.extra_data}</small>` : ''}
+                        </div>
+                        <div class="action-btns">
+                            <button class="btn btn-small btn-edit" onclick='editItem(${JSON.stringify(item)})'>تعديل</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteItem('${item.id}')">مسح</button>
+                        </div>
+                    `;
+                    listContainer.appendChild(card);
+                });
+            } catch (e) { listContainer.innerHTML = 'فشل التحميل.'; }
+            loader.style.display = 'none';
+        }
+
+        window.editItem = (item) => {
+            idField.value = item.id; catField.value = item.category;
+            titleField.value = item.title; descField.value = item.description;
+            extraField.value = item.extra_data; btnCancel.style.display = 'block';
+            updateFormUI(); window.scrollTo(0, 0);
+        };
+
+        window.deleteItem = async (id) => {
+            if (!confirm("متأكد من المسح؟")) return;
+            await fetch(`${API_URL}/content?id=${id}`, { method: 'DELETE' });
+            fetchContent();
+        };
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = { id: idField.value, category: catField.value, title: titleField.value, description: descField.value, extra_data: extraField.value };
+            await fetch(`${API_URL}/content`, { method: 'POST', body: JSON.stringify(payload) });
+            resetForm(); fetchContent();
+        };
+
+        // CHAT SESSION LOGIC
+        const sectionKb = document.getElementById('section-kb');
+        const sectionChats = document.getElementById('section-chats');
+        const sectionWebhooks = document.getElementById('section-webhooks');
+        const sectionUsage = document.getElementById('section-usage');
+        const sectionSettings = document.getElementById('section-settings');
+
+        const tabKb = document.getElementById('tab-kb');
+        const tabChats = document.getElementById('tab-chats');
+        const tabWebhooks = document.getElementById('tab-webhooks');
+        const tabUsage = document.getElementById('tab-usage');
+        const tabSettings = document.getElementById('tab-settings');
+
+        const logsContainer = document.getElementById('logs-container');
+        const usageList = document.getElementById('usage-list');
+        const btnRefreshLogs = document.getElementById('refresh-logs');
+        const btnRefreshUsage = document.getElementById('refresh-usage');
+        let currentModalChatId = null;
+
+        function switchTab(target) {
+            sectionKb.style.display = target === 'kb' ? 'grid' : 'none';
+            sectionChats.style.display = target === 'chats' ? 'block' : 'none';
+            sectionWebhooks.style.display = target === 'webhooks' ? 'block' : 'none';
+            sectionUsage.style.display = target === 'usage' ? 'block' : 'none';
+            sectionSettings.style.display = target === 'settings' ? 'block' : 'none';
+
+            tabKb.className = target === 'kb' ? 'btn btn-primary' : 'btn btn-outline';
+            tabChats.className = target === 'chats' ? 'btn btn-secondary' : 'btn btn-outline';
+            tabWebhooks.className = target === 'webhooks' ? 'btn btn-accent' : 'btn btn-outline';
+            tabUsage.className = target === 'usage' ? 'btn btn-accent' : 'btn btn-outline';
+            tabSettings.className = target === 'settings' ? 'btn btn-primary' : 'btn btn-outline';
+
+            // Reset background inline styles since we now use classes
+            [tabKb, tabChats, tabWebhooks, tabUsage, tabSettings].forEach(t => t.style.background = '');
+
+            if (target === 'chats') fetchSessions();
+            if (target === 'usage') fetchUsageStats();
+            if (target === 'webhooks') fetchWebhookLogs();
+            if (target === 'settings') { fetchSettings(); fetchMetaPages(); }
+        }
+
+        tabKb.onclick = () => switchTab('kb');
+        tabChats.onclick = () => switchTab('chats');
+        tabWebhooks.onclick = () => switchTab('webhooks');
+        tabUsage.onclick = () => switchTab('usage');
+        tabSettings.onclick = () => switchTab('settings');
+        btnRefreshUsage.onclick = fetchUsageStats;
+
+        document.getElementById('btn-reset-usage').onclick = async () => {
+            if (!confirm("هل أنت متأكد من تصفير إحصائيات الاستهلاك؟ سيتم مسح كل السجلات التاريخية للـ API.")) return;
+            try {
+                await fetch(`${API_URL}/admin/usage-stats`, { method: 'DELETE' });
+                fetchUsageStats();
+            } catch (e) { alert("حدث خطأ أثناء التصفير."); }
+        };
+
+        // META LOGIC
+        const metaForm = document.getElementById('meta-form');
+        const metaList = document.getElementById('meta-list');
+
+        metaForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                page_id: document.getElementById('meta-page-id').value,
+                platform: document.getElementById('meta-platform').value,
+                access_token: document.getElementById('meta-token').value,
+                page_name: document.getElementById('meta-name').value
+            };
+            try {
+                const res = await fetch(`${API_URL}/register-page`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert("تم ربط الصفحة بنجاح! 🎉");
+                    metaForm.reset();
+                    fetchMetaPages();
+                } else {
+                    alert("فشل الربط، تأكد من البيانات.");
+                }
+            } catch (e) { alert("خطأ في الاتصال بالويركر."); }
+        };
+
+        async function fetchMetaPages() {
+            metaList.innerHTML = '<p style="opacity:0.5;">جاري التحميل...</p>';
+            try {
+                const res = await fetch(`${API_URL}/admin/pages`); // Note: We need this endpoint in worker
+                const pages = await res.json();
+                metaList.innerHTML = '';
+                if (!pages.length) { metaList.innerHTML = '<p style="opacity:0.5;">لا توجد صفحات مرتبطة.</p>'; return; }
+                pages.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'content-card';
+                    card.style.padding = '1rem';
+                    card.innerHTML = `
+                        <div style="font-weight:bold; color:var(--primary);">${p.page_name || 'بدون اسم'}</div>
+                        <div style="font-size:0.7rem; opacity:0.6; margin:5px 0;">ID: ${p.page_id}</div>
+                        <div style="font-size:0.6rem; color:var(--accent);">${p.platform.toUpperCase()}</div>
+                    `;
+                    metaList.appendChild(card);
+                });
+            } catch (e) { metaList.innerHTML = 'فشل التحميل.'; }
+        }
+
+        async function fetchUsageStats() {
+            try {
+                usageList.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; opacity:0.5;">جاري تحميل البيانات...</td></tr>';
+                const res = await fetch(`${API_URL}/admin/usage-stats`);
+                const stats = await res.json();
+                renderUsageStats(stats);
+            } catch (e) {
+                console.error("fetchUsageStats failed:", e);
+                usageList.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--danger);">فشل تحميل الإحصائيات.</td></tr>';
+            }
+        }
+
+        // SETTINGS LOGIC
+        const settingsForm = document.getElementById('settings-form');
+        async function fetchSettings() {
+            try {
+                const res = await fetch(`${API_URL}/admin/settings`);
+                const data = await res.json();
+                const fields = {
+                    'setting-ai-prompt': data.ai_prompt,
+                    'setting-tg-token': data.tg_token,
+                    'setting-wa-phone-id': data.wa_phone_id
+                };
+                for (const [id, val] of Object.entries(fields)) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = val || '';
+                }
+            } catch (e) { console.error("fetchSettings Error:", e); alert("فشل جلب الإعدادات."); }
+        }
+
+        settingsForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                ai_prompt: document.getElementById('setting-ai-prompt').value,
+                tg_token: document.getElementById('setting-tg-token').value,
+                wa_phone_id: document.getElementById('setting-wa-phone-id').value
+            };
+            try {
+                const res = await fetch(`${API_URL}/admin/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) alert("تم حفظ الإعدادات بنجاح! ✨");
+                else alert("فشل الحفظ.");
+            } catch (e) { alert("خطأ في الاتصال."); }
+        };
+
+        function renderUsageStats(stats) {
+            usageList.innerHTML = '';
+            if (!stats.length) { usageList.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; opacity:0.5;">لا توجد بيانات استهلاك بعد.</td></tr>'; return; }
+            stats.forEach(s => {
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid var(--glass-border)';
+                row.innerHTML = `
+                    <td style="padding: 12px; font-family: monospace;">****${s.key_last4}</td>
+                    <td style="padding: 12px; color: var(--secondary);">${s.model_id}</td>
+                    <td style="padding: 12px; color: #22c55e; font-weight: bold;">${s.success_count}</td>
+                    <td style="padding: 12px; color: #ef4444;">${s.error_count}</td>
+                    <td style="padding: 12px; font-size: 0.75rem; color: #ff9494; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.last_error_log || ''}">${s.last_error_log || '-'}</td>
+                    <td style="padding: 12px; font-size: 0.8rem; opacity: 0.7;">${new Date(s.last_used_at).toLocaleString('ar-EG')}</td>
+                `;
+                usageList.appendChild(row);
+            });
+        }
+
+        async function fetchSessions() {
+            try {
+                const res = await fetch(`${API_URL}/admin/sessions`);
+                const sessions = await res.json();
+                renderSessions(sessions);
+                if (currentModalChatId) viewHistory(currentModalChatId, true);
+            } catch (e) { }
+        }
+
+        function renderSessions(sessions) {
+            logsContainer.innerHTML = '';
+            if (!sessions.length) { logsContainer.innerHTML = '<p style="grid-column:1/-1; text-align:center; opacity:0.5;">لا توجد جلسات.</p>'; return; }
+            sessions.forEach(s => {
+                const card = document.createElement('div');
+                let platformIcon = '🌐';
+                if (s.platform === 'telegram') platformIcon = '📱';
+                else if (s.platform === 'facebook' || s.platform === 'messenger') platformIcon = '🔵';
+                else if (s.platform === 'instagram') platformIcon = '📸';
+                else if (s.platform === 'whatsapp') platformIcon = '🟢';
+
+                const sentimentClass =
+                    s.sentiment === 'منفعل' ? 'sentiment-angry' :
+                        (s.sentiment === 'حيران' ? 'sentiment-confused' :
+                            (s.sentiment === 'مش فاهم' ? 'sentiment-unclear' :
+                                (s.sentiment === 'هاديء' ? 'sentiment-calm' : 'sentiment-neutral')));
+
+                const isUrgent = s.needs_intervention || s.sentiment === 'منفعل';
+                card.className = 'session-card ' + (isUrgent ? 'sentiment-alert' : '');
+                card.onclick = () => viewHistory(s.chat_id);
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.6; margin-bottom:10px;">
+                        <span>${platformIcon} ${s.platform.toUpperCase()} <span class="status-pill ${s.status === 'paused' ? 'pill-paused' : (s.status === 'closed' ? 'pill-closed' : 'pill-active')}">${s.status}</span></span>
+                        <span>${new Date(s.updated_at).toLocaleTimeString('ar-EG')}</span>
+                    </div>
+                    <div style="font-weight:bold; color:var(--primary); margin-bottom:5px;">${s.user_name || 'User'}</div>
+                    <div style="font-size:0.8rem; opacity:0.8; height:40px; overflow:hidden;">${s.last_msg}</div>
+                    <div style="margin-top:10px;">
+                        <span class="badge-sentiment ${sentimentClass}">${s.sentiment || 'هاديء'}</span>
+                        ${isUrgent ? '<span class="badge-sentiment sentiment-angry">🔥 تدخل عاجل</span>' : ''}
+                    </div>
+                `;
+                logsContainer.appendChild(card);
+            });
+        }
+
+        window.viewHistory = async (chatId, silent = false) => {
+            currentModalChatId = chatId;
+            const modal = document.getElementById('history-modal');
+            const historyContent = document.getElementById('history-content');
+            const controls = document.getElementById('modal-controls');
+            const summaryBox = document.getElementById('ai-summary-box');
+            if (!silent) {
+                modal.style.display = 'flex';
+                historyContent.innerHTML = 'جاري التحميل...';
+                summaryBox.style.display = 'none';
+                summaryBox.innerHTML = '';
+            }
+
+            try {
+                const logsRes = await fetch(`${API_URL}/admin/logs`);
+                const logs = await logsRes.json();
+                const sessionLogs = logs.filter(l => l.chat_id === chatId).reverse();
+
+                const sessionRes = await fetch(`${API_URL}/admin/sessions`);
+                const session = (await sessionRes.json()).find(s => s.chat_id === chatId);
+
+                controls.innerHTML = `
+                    <button class="btn btn-small" style="background:#6d28d9" onclick="summarizeUser('${chatId}')" title="تحليل استراتيجي لشخصية العميل">تحليل العميل 🧠</button>
+                    <button class="btn btn-small" style="background:#4b5563" onclick="document.getElementById('history-modal').classList.toggle('fullscreen')" title="تكبير">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-small" style="background:${session?.status === 'paused' ? 'var(--secondary)' : '#f59e0b'}" onclick="updateStatus('${chatId}','${session?.status === 'paused' ? 'resume' : 'pause'}')">${session?.status === 'paused' ? 'تشغيل AI' : 'إيقاف AI'}</button>
+                    <button class="btn btn-small btn-danger" onclick="updateStatus('${chatId}','close')">إغلاق</button>
+                    <button class="btn btn-small" style="background:rgba(255,255,255,0.08); border:1px solid var(--glass-border);" onclick="document.getElementById('history-modal').style.display='none'; document.getElementById('history-modal').classList.remove('fullscreen'); currentModalChatId=null;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        خروج
+                    </button>
+                `;
+
+                historyContent.innerHTML = '';
+                sessionLogs.forEach(l => {
+                    // User message
+                    if (l.user_msg) {
+                        const userRow = document.createElement('div');
+                        userRow.style.cssText = `display:flex; align-items:flex-end; gap:8px; justify-content:flex-start; margin-bottom:12px; animation:fadeIn 0.3s ease;`;
+                        userRow.innerHTML = `
+                            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#0ea5e9);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">👤</div>
+                            <div style="background:rgba(255,255,255,0.06);border:1px solid var(--glass-border);border-right:3px solid #22d3ee;padding:10px 14px;border-radius:20px 20px 20px 4px;max-width:78%;font-size:0.9rem;line-height:1.6;color:var(--text);">${l.user_msg}</div>
+                        `;
+                        historyContent.appendChild(userRow);
+                    }
+                    // AI reply
+                    if (l.ai_msg && !l.is_human) {
+                        const aiRow = document.createElement('div');
+                        aiRow.style.cssText = `display:flex; align-items:flex-end; gap:8px; justify-content:flex-end; margin-bottom:12px; animation:fadeIn 0.3s ease;`;
+                        aiRow.innerHTML = `
+                            <div style="background:linear-gradient(135deg,#4f46e5,#0ea5e9);padding:10px 14px;border-radius:20px 20px 4px 20px;max-width:78%;font-size:0.9rem;line-height:1.6;color:#fff;">${l.ai_msg}</div>
+                            <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">🤖</div>
+                        `;
+                        historyContent.appendChild(aiRow);
+                    }
+                    // Human agent reply
+                    if (l.human_reply) {
+                        const hrRow = document.createElement('div');
+                        hrRow.style.cssText = `display:flex; align-items:flex-end; gap:8px; justify-content:flex-end; margin-bottom:12px; animation:fadeIn 0.3s ease;`;
+                        hrRow.innerHTML = `
+                            <div style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);padding:10px 14px;border-radius:20px 20px 4px 20px;max-width:78%;font-size:0.9rem;line-height:1.6;color:#e9d5ff;">${l.human_reply}</div>
+                            <div style="width:32px;height:32px;border-radius:50%;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">👨‍💼</div>
+                        `;
+                        historyContent.appendChild(hrRow);
+                    }
+                });
+                if (!silent) historyContent.scrollTop = historyContent.scrollHeight;
+            } catch (e) { }
+        };
+
+        window.updateStatus = async (chatId, action) => {
+            await fetch(`${API_URL}/admin/session-control`, { method: 'POST', body: JSON.stringify({ chatId, action }) });
+            if (action === 'close') { document.getElementById('history-modal').style.display = 'none'; currentModalChatId = null; }
+            fetchSessions();
+        };
+
+        document.getElementById('modal-send-btn').onclick = async () => {
+            const input = document.getElementById('modal-reply-input');
+            const msg = input.value.trim();
+            if (!msg || !currentModalChatId) return;
+            const resLogs = await fetch(`${API_URL}/admin/logs`);
+            const lastLog = (await resLogs.json()).find(l => l.chat_id === currentModalChatId);
+            await fetch(`${API_URL}/admin/reply`, { method: 'POST', body: JSON.stringify({ logId: lastLog.id, reply: msg }) });
+            input.value = ''; viewHistory(currentModalChatId, true);
+        };
+
+        document.getElementById('toggle-full').onclick = () => document.getElementById('section-chats').classList.toggle('fullscreen-inbox');
+        window.summarizeUser = async (chatId) => {
+            const summaryDiv = document.getElementById('ai-summary-box');
+            summaryDiv.style.display = 'block';
+            summaryDiv.innerHTML = '<div style="text-align:center; padding:15px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px dashed var(--primary);">جاري تحليل شخصية العميل وأهدافه... 🧠</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/admin/summarize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId })
+                });
+                const data = await res.json();
+                summaryDiv.innerHTML = `
+                    <div style="background:rgba(109,40,217,0.15); border-left:4px solid var(--primary); padding:15px; border-radius:8px; font-size:0.9rem; border:1px solid rgba(109,40,217,0.3); position:relative;">
+                        <button onclick="document.getElementById('ai-summary-box').style.display='none'" 
+                                style="position:absolute; top:8px; left:8px; background:transparent; border:none; color:rgba(255,255,255,0.5); cursor:pointer; font-size:1.1rem;" title="إخفاء">✕</button>
+                        <div style="font-weight:bold; margin-bottom:10px; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:1.2rem;">📊</span> تقرير تحليل العميل الذكي
+                        </div>
+                        <div style="white-space:pre-wrap; line-height:1.6; color:rgba(255,255,255,0.9);">${data.summary}</div>
+                    </div>
+                `;
+            } catch (e) {
+                summaryDiv.innerHTML = '<div style="color:#ef4444; padding:10px; text-align:center;">فشل التحليل، حاول مرة أخرى.</div>';
+            }
+        };
+
+        async function fetchWebhookLogs() {
+            const list = document.getElementById('webhook-logs-list');
+            if (!list) return;
+            list.innerHTML = '<p style="opacity:0.5;">جاري الفحص...</p>';
+            try {
+                const res = await fetch(`${API_URL}/admin/webhook-logs`);
+                const logs = await res.json();
+                list.innerHTML = '';
+                if (!logs.length) {
+                    list.innerHTML = '<div style="padding:20px; text-align:center; border:1px dashed var(--glass-border); border-radius:10px; opacity:0.6;">لا توجد بيانات واردة من فيسبوك حتى الآن. تأكد من إعداد Webhook Subscriptions في صفحة المطورين.</div>';
+                    return;
+                }
+                logs.forEach(l => {
+                    const item = document.createElement('div');
+                    item.style.padding = '10px';
+                    item.style.background = 'rgba(255,255,255,0.05)';
+                    item.style.borderRadius = '8px';
+                    item.style.fontSize = '0.75rem';
+                    item.innerHTML = `
+                        <div style="color:var(--accent); margin-bottom:5px;">${new Date(l.created_at).toLocaleString('ar-EG')}</div>
+                        <pre style="white-space:pre-wrap; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px; font-family:monospace;">${JSON.stringify(JSON.parse(l.payload), null, 2)}</pre>
+                    `;
+                    list.appendChild(item);
+                });
+            } catch (e) { list.innerHTML = 'فشل جلب السجلات.'; }
+        }
+
+        const btnRefreshWebhooks = document.getElementById('refresh-webhooks');
+        if (btnRefreshWebhooks) btnRefreshWebhooks.onclick = fetchWebhookLogs;
+
+        const btnTestWebhook = document.getElementById('test-webhook');
+        if (btnTestWebhook) {
+            btnTestWebhook.onclick = async () => {
+                if (!confirm("هنبعت رسالة تجريبية وهمية نختبر بيها السيستم.. موافق؟")) return;
+                try {
+                    const res = await fetch(`${API_URL}/webhook`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            object: "page",
+                            entry: [{
+                                id: "test_page_id",
+                                messaging: [{
+                                    sender: { id: "test_user_id" },
+                                    message: { text: "Hello from Debugger!" }
+                                }]
+                            }]
+                        })
+                    });
+                    if (res.ok) {
+                        alert("تنبيه الاختبار اتبعت! استنى ثانية ودوس 'تحديث السجل' وشوف هيظهر ولا لأ.");
+                        if (typeof fetchWebhookLogs === 'function') fetchWebhookLogs();
+                    } else {
+                        alert("فشل في إرسال الاختبار: " + res.status);
+                    }
+                } catch (e) {
+                    console.error("Test Webhook Error:", e);
+                    alert("خطأ في الاتصال: " + e.message);
+                }
+            };
+        }
+
+        fetchContent();
+        setInterval(() => { if (sectionChats.style.display === 'block') fetchSessions(); }, 8000);
+    </script>
+</body>
+
+</html>
