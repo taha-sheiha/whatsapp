@@ -6,8 +6,7 @@ const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahashe
 
 async function getRemoteAuthState(sessionId = 'default') {
     logger.info(`Fetching remote session for ${sessionId}...`);
-    const baileysModule = await import('@whiskeysockets/baileys');
-    const baileys = baileysModule.default || baileysModule;
+    const baileys = require('@whiskeysockets/baileys');
     const { proto, initCreds } = baileys;
 
     // 1. Fetch from Remote DB

@@ -5,8 +5,7 @@ const logger = require('./logger');
 async function connectToWhatsApp(onMessage, onUpdate) {
     logger.info('Initializing WhatsApp connection...');
     try {
-        const baileysModule = await import('@whiskeysockets/baileys');
-        const baileys = baileysModule.default || baileysModule;
+        const baileys = require('@whiskeysockets/baileys');
         const makeWASocket = baileys.default || baileys.makeWASocket;
         const { DisconnectReason, fetchLatestBaileysVersion } = baileys;
 
