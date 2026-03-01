@@ -13,6 +13,11 @@ let botStatus = 'disconnected';
 async function startServer() {
     logger.info('Starting Render Server for WhatsApp Bot...');
 
+    // Start Express immediately so Render doesn't kill the process due to timeout
+    app.listen(PORT, () => {
+        logger.info(`Server is running on port ${PORT} 🚀`);
+    });
+
     // Web Routes
     app.get('/', (req, res) => {
         const html = `
@@ -35,7 +40,6 @@ async function startServer() {
                     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
                 </style>
                 <script>
-                    // Only refresh if not connected to save bandwidth
                     const currentStatus = '${botStatus}';
                     if (currentStatus !== 'connected') {
                         setInterval(() => location.reload(), 15000);
@@ -72,30 +76,31 @@ async function startServer() {
         res.send(html);
     });
 
-    // Keep-Alive / Health Check
     app.get('/ping', (req, res) => {
         res.send('pong');
     });
 
-    // Start WhatsApp Bot
-    await connectToWhatsApp(
-        handleIncomingMessage,
-        (update) => {
-            if (update.type === 'qr') {
-                currentQR = update.data;
-                botStatus = 'disconnected';
-            } else if (update.type === 'status') {
-                botStatus = update.data;
-                if (update.data === 'connected') currentQR = null;
+    // Start WhatsApp Bot in the background
+    try {
+        await connectToWhatsApp(
+            handleIncomingMessage,
+            (update) => {
+                if (update.type === 'qr') {
+                    currentQR = update.data;
+                    botStatus = 'disconnected';
+                } else if (update.type === 'status') {
+                    botStatus = update.data;
+                    if (update.data === 'connected') currentQR = null;
+                }
             }
-        }
-    );
-
-    app.listen(PORT, () => {
-        logger.info(`Server is running on port ${PORT}`);
-    });
+        );
+    } catch (botErr) {
+        logger.error(`WhatsApp Bot Initialization Failure: ${botErr.message || botErr}`);
+        if (botErr.stack) logger.error(botErr.stack);
+    }
 }
 
 startServer().catch(err => {
-    logger.error('Critical Error starting server:', err);
+    logger.error('Unhandled Server Error:', err.message || err);
+    if (err.stack) logger.error(err.stack);
 });

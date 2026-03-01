@@ -4,7 +4,9 @@ const logger = require('./logger');
 
 async function connectToWhatsApp(onMessage, onUpdate) {
     try {
-        const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = await import('@whiskeysockets/baileys');
+        const baileys = await import('@whiskeysockets/baileys');
+        const makeWASocket = baileys.default || baileys.makeWASocket;
+        const { DisconnectReason, fetchLatestBaileysVersion } = baileys;
 
         const { state, saveCreds } = await getRemoteAuthState();
         const { version } = await fetchLatestBaileysVersion();
