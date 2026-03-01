@@ -68,7 +68,8 @@ async function connectToWhatsApp(onMessage, onUpdate) {
 
         return sock;
     } catch (err) {
-        logger.error('Error in connectToWhatsApp setup:', err);
+        logger.error(`Error in connectToWhatsApp setup: ${err.message || err}`);
+        if (err.stack) logger.error(err.stack);
         throw err;
     }
 }
