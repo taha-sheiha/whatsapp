@@ -1,17 +1,13 @@
-const qrcodeLib = require('qrcode');
-const { getRemoteAuthState } = require('./session_remote');
-const logger = require('./logger');
+import qrcodeLib from 'qrcode';
+import { getRemoteAuthState } from './session_remote.js';
+import logger from './logger.js';
+import baileys from '@whiskeysockets/baileys';
 
-async function connectToWhatsApp(onMessage, onUpdate) {
+const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = baileys.default || baileys;
+
+export async function connectToWhatsApp(onMessage, onUpdate) {
     logger.info('Initializing WhatsApp connection...');
     try {
-        const b = require('@whiskeysockets/baileys');
-        const baileys = (b.default && Object.keys(b.default).length > 0) ? b.default : b;
-
-        const makeWASocket = baileys.makeWASocket || b.makeWASocket || baileys.default?.makeWASocket;
-        const DisconnectReason = baileys.DisconnectReason || b.DisconnectReason;
-        const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion || b.fetchLatestBaileysVersion;
-
         logger.info('Loading remote auth state...');
         const { state, saveCreds } = await getRemoteAuthState();
 
@@ -19,7 +15,7 @@ async function connectToWhatsApp(onMessage, onUpdate) {
         const { version } = await fetchLatestBaileysVersion();
         logger.info(`Using Baileys version: ${version}`);
 
-        const sock = makeWASocket({
+        const sock = (makeWASocket.default || makeWASocket)({
             version,
             auth: state,
             logger: logger.child({ module: 'baileys' }),
@@ -86,5 +82,3 @@ async function connectToWhatsApp(onMessage, onUpdate) {
         throw err;
     }
 }
-
-module.exports = { connectToWhatsApp };

@@ -1,13 +1,13 @@
-const logger = require('./logger');
+import logger from './logger.js';
 
 const messageQueue = [];
 let isProcessing = false;
 
-async function sendMessage(sock, jid, text) {
+export async function sendMessage(sock, jid, text) {
     if (!text || text.trim() === '') return;
 
     messageQueue.push({ sock, jid, text });
-    processQueue();
+    await processQueue();
 }
 
 async function processQueue() {
@@ -21,11 +21,8 @@ async function processQueue() {
         logger.info(`Message sent to ${jid}`);
     } catch (error) {
         logger.error(`Failed to send message to ${jid}:`, error);
-        // Retry logic could be added here
     }
 
     isProcessing = false;
     processQueue();
 }
-
-module.exports = { sendMessage };

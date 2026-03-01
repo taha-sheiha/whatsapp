@@ -1,8 +1,12 @@
-const express = require('express');
-const { connectToWhatsApp } = require('./connection');
-const { handleIncomingMessage } = require('./listener');
-const logger = require('./logger');
-const path = require('path');
+import express from 'express';
+import { connectToWhatsApp } from './connection.js';
+import { handleIncomingMessage } from './listener.js';
+import logger from './logger.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
