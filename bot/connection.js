@@ -3,13 +3,18 @@ const { getRemoteAuthState } = require('./session_remote');
 const logger = require('./logger');
 
 async function connectToWhatsApp(onMessage, onUpdate) {
+    logger.info('Initializing WhatsApp connection...');
     try {
         const baileys = await import('@whiskeysockets/baileys');
         const makeWASocket = baileys.default || baileys.makeWASocket;
         const { DisconnectReason, fetchLatestBaileysVersion } = baileys;
 
+        logger.info('Loading remote auth state...');
         const { state, saveCreds } = await getRemoteAuthState();
+
+        logger.info('Fetching latest Baileys version...');
         const { version } = await fetchLatestBaileysVersion();
+        logger.info(`Using Baileys version: ${version}`);
 
         const sock = makeWASocket({
             version,
@@ -18,20 +23,23 @@ async function connectToWhatsApp(onMessage, onUpdate) {
             browser: ['NeuraBot', 'Chrome', '1.0.0']
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', async () => {
+            logger.info('Credentials updated, saving to remote storage...');
+            await saveCreds();
+        });
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
-                logger.info('QR Code received from Baileys');
+                logger.info('QR Code received from Baileys! Generating image...');
                 if (onUpdate) {
                     try {
                         const qrImage = await qrcodeLib.toDataURL(qr);
-                        logger.info('QR Image generated successfully');
+                        logger.info('QR Image created successfully ✅');
                         onUpdate({ type: 'qr', data: qrImage });
                     } catch (qrErr) {
-                        logger.error('Error generating QR Image:', qrErr);
+                        logger.error(`Error generating QR Image: ${qrErr.message}`);
                     }
                 }
             }
@@ -40,7 +48,7 @@ async function connectToWhatsApp(onMessage, onUpdate) {
                 const statusCode = lastDisconnect.error?.output?.statusCode;
                 const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
 
-                logger.error(`Connection closed. Status: ${statusCode}. Reason:`, lastDisconnect.error);
+                logger.error(`Connection closed. Status: ${statusCode}. Reason: ${lastDisconnect.error?.message || 'Unknown'}`);
 
                 if (onUpdate) {
                     onUpdate({ type: 'status', data: 'disconnected' });
