@@ -88,8 +88,7 @@ async function startServer() {
                 botStatus = update.data;
                 if (update.data === 'connected') currentQR = null;
             }
-        },
-        path.join(__dirname, 'session_data')
+        }
     );
 
     app.listen(PORT, () => {

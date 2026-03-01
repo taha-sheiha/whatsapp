@@ -46,7 +46,7 @@ async function connectToWhatsApp(onMessage, onUpdate) {
 
                 if (!isLoggedOut) {
                     logger.info('Reconnecting in 5 seconds...');
-                    setTimeout(() => connectToWhatsApp(onMessage, onUpdate, sessionDir), 5000);
+                    setTimeout(() => connectToWhatsApp(onMessage, onUpdate), 5000);
                 } else {
                     logger.warn('Session is invalid or logged out. Please clear session and re-link.');
                 }
