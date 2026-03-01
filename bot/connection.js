@@ -5,9 +5,12 @@ const logger = require('./logger');
 async function connectToWhatsApp(onMessage, onUpdate) {
     logger.info('Initializing WhatsApp connection...');
     try {
-        const baileys = require('@whiskeysockets/baileys');
-        const makeWASocket = baileys.default || baileys.makeWASocket;
-        const { DisconnectReason, fetchLatestBaileysVersion } = baileys;
+        const b = require('@whiskeysockets/baileys');
+        const baileys = (b.default && Object.keys(b.default).length > 0) ? b.default : b;
+
+        const makeWASocket = baileys.makeWASocket || b.makeWASocket || baileys.default?.makeWASocket;
+        const DisconnectReason = baileys.DisconnectReason || b.DisconnectReason;
+        const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion || b.fetchLatestBaileysVersion;
 
         logger.info('Loading remote auth state...');
         const { state, saveCreds } = await getRemoteAuthState();

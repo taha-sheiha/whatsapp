@@ -6,8 +6,16 @@ const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahashe
 
 async function getRemoteAuthState(sessionId = 'default') {
     logger.info(`Fetching remote session for ${sessionId}...`);
-    const baileys = require('@whiskeysockets/baileys');
-    const { proto, initCreds } = baileys;
+    const b = require('@whiskeysockets/baileys');
+    const baileys = (b.default && Object.keys(b.default).length > 0) ? b.default : b;
+    const initCreds = baileys.initCreds || b.initCreds;
+    const proto = baileys.proto || b.proto;
+
+    if (typeof initCreds !== 'function') {
+        logger.error('CRITICAL: initCreds is still not a function after defensive check');
+        logger.info('Baileys keys:', Object.keys(b));
+        if (b.default) logger.info('Baileys.default keys:', Object.keys(b.default));
+    }
 
     // 1. Fetch from Remote DB
     let remoteData = null;
