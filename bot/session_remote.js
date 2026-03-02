@@ -1,8 +1,7 @@
 import axios from 'axios';
 import logger from './logger.js';
-import baileys from '@whiskeysockets/baileys';
-
-const { proto, initCreds } = baileys.default || baileys;
+import pkg from '@whiskeysockets/baileys';
+const { proto, initCreds } = pkg;
 
 // Remote Session Config (via Cloudflare Worker)
 const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
