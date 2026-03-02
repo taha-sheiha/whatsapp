@@ -8,6 +8,9 @@ const AI_API_URL = process.env.AI_API_URL || 'https://ai.tahasheiha.workers.dev/
 const rateLimitCache = new NodeCache({ stdTTL: 60 });
 const messageIdCache = new NodeCache({ stdTTL: 3600 });
 
+// Per-sender conversation history (in-memory, max 10 exchanges per user)
+const conversationHistory = new Map();
+
 /**
  * Recursively extracts text from complex Baileys message objects
  */
@@ -76,12 +79,16 @@ async function handleIncomingMessage(sock, msg, customApiUrl) {
         const targetUrl = customApiUrl || AI_API_URL;
         const chatId = `wa-${sender.split('@')[0]}`;
 
+        // Get conversation history for this sender
+        if (!conversationHistory.has(sender)) conversationHistory.set(sender, []);
+        const history = conversationHistory.get(sender);
+
         let response;
         try {
             response = await axios.post(targetUrl, {
                 question: text,
                 chatId,
-                history: []
+                history: history.slice(-20) // Send last 20 messages (10 exchanges)
             }, { timeout: 25000 });
         } catch (apiError) {
             const status = apiError.response?.status;
@@ -105,8 +112,13 @@ async function handleIncomingMessage(sock, msg, customApiUrl) {
             return;
         }
 
-        // STEP 7: Send Reply
-        logger.info(`[REPLY] Sending reply to ${sender}. Length: ${aiReply.length} chars. ID: ${msgId}`);
+        // STEP 7: Update History & Send Reply
+        history.push({ role: 'user', content: text });
+        history.push({ role: 'assistant', content: aiReply });
+        // Keep only last 20 entries (10 exchanges) to avoid memory bloat
+        if (history.length > 20) history.splice(0, history.length - 20);
+
+        logger.info(`[REPLY] Sending reply to ${sender}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
         await sendMessage(sock, sender, aiReply);
         logger.info(`[DONE] ✅ Reply sent to ${sender}. ID: ${msgId}`);
 
