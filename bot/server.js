@@ -69,7 +69,16 @@ async function startServer() {
                             <p>أدخل هذا الكود في واتساب للربط:</p>
                             <div class="code-box">${currentPairingCode}</div>
                             <p style="font-size: 0.9em; color:#94a3b8; margin-top: 15px;">افتح واتساب > الأجهزة المرتبطة > ربط جهاز > الربط برقم هاتف بدلاً من ذلك</p>
-                            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: transparent; border: 1px solid #38bdf8; border-radius: 5px; color: #38bdf8; cursor: pointer;">تحديث الحالة</button>
+                            <div style="margin-top: 25px;">
+                                <button onclick="location.reload()" style="padding: 10px 20px; background: transparent; border: 1px solid #38bdf8; border-radius: 5px; color: #38bdf8; cursor: pointer; margin-left: 10px;">تحديث الحالة</button>
+                                <button onclick="resetPairing()" style="padding: 10px 20px; background: transparent; border: 1px solid #f87171; border-radius: 5px; color: #f87171; cursor: pointer;">رجوع للخلف</button>
+                            </div>
+                            <script>
+                                function resetPairing() {
+                                    fetch('/api/reset-pairing', { method: 'POST' })
+                                        .then(() => location.reload());
+                                }
+                            </script>
                         </div>
                     ` : currentQR ? `
                         <div style="margin-top:20px;">
@@ -136,6 +145,11 @@ async function startServer() {
             logger.error('Error requesting pairing code:', err);
             res.status(500).json({ error: 'فشل في طلب الكود، تأكد من الرقم واكتبه بصيغة صحيحة (مثال 2010...)' });
         }
+    });
+
+    app.post('/api/reset-pairing', (req, res) => {
+        currentPairingCode = null;
+        res.json({ success: true });
     });
 
     app.get('/ping', (req, res) => {
