@@ -4,16 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CountaNeura - AI Solutions</title>
+    <title>CountaNeura - AI Chat</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <div id="chat-container" class="glass-card">
-        <!-- New Header with Logo -->
         <header class="chat-header">
             <div class="header-logo-group">
-                <img src="logo.png" alt="CountaNeura Logo" class="brand-logo">
+                <img src="logo.png" alt="Logo" class="brand-logo"
+                    onerror="this.src='https://ui-avatars.com/api/?name=Neura&background=38bdf8&color=fff'">
                 <div>
                     <h2 class="brand-title">CountaNeura AI</h2>
                     <p class="brand-subtitle">مستشارك الذكي - متاح 24/7</p>
@@ -31,21 +31,19 @@
             </div>
         </header>
 
-        <!-- Messages Area -->
         <div id="chat-messages">
             <div class="message-wrapper ai-wrapper">
-                <img src="logo.png" alt="AI Agent" class="chat-avatar">
+                <img src="logo.png" alt="AI Agent" class="chat-avatar"
+                    onerror="this.src='https://ui-avatars.com/api/?name=N&background=38bdf8&color=fff'">
                 <div class="message ai-msg">مساء الخير يا فندم! أنا Neura من CountaNeura. <strong>نتشرف بمعرفة اسم
                         حضرتك؟</strong></div>
             </div>
         </div>
 
-        <!-- Loading Indicator -->
         <div id="loading" class="loading-indicator" style="display:none;">
             <div class="dot-typing"></div>
         </div>
 
-        <!-- Input Area -->
         <form id="chat-input-area">
             <button type="button" id="clear-chat" class="icon-btn" title="محادثة جديدة">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -74,7 +72,6 @@
         const loading = document.getElementById('loading');
         let chatHistory = [];
 
-        // --- CHAT SESSION & POLLING ---
         function getChatId() {
             let id = localStorage.getItem('neura_chat_id');
             if (!id) {
@@ -90,14 +87,11 @@
                 const res = await fetch(`${API_URL}/admin/check-reply?chatId=${chatId}`);
                 if (res.ok) {
                     const data = await res.json();
-
-                    // Handle Session Closure (Reset)
                     if (data.status === 'closed') {
                         localStorage.removeItem('neura_chat_id');
                         window.location.reload();
                         return;
                     }
-
                     if (data.replies && data.replies.length > 0) {
                         data.replies.forEach(r => {
                             const isNew = !Array.from(document.querySelectorAll('.ai-msg')).some(el => el.innerText.includes(r.human_reply));
@@ -112,34 +106,18 @@
         function addMessage(text, role, isHuman = false) {
             const wrapper = document.createElement('div');
             wrapper.className = `message-wrapper ${role === 'user' ? 'user-wrapper' : 'ai-wrapper'}`;
-
-            let messageHtml = '';
-
-            // Format bold text automatically (Basic Markdown)
             let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
             if (isHuman) formattedText = `<div style="color:var(--secondary); font-size:0.7rem; margin-bottom:4px;">[رد من الإدارة]</div>` + formattedText;
 
-            if (role === 'ai') {
-                messageHtml = `
-                    <img src="logo.png" alt="AI Agent" class="chat-avatar">
-                    <div class="message ai-msg">${formattedText}</div>
-                `;
-            } else {
-                messageHtml = `
-                    <div class="message user-msg">${formattedText}</div>
-                `;
-            }
+            let avatarHtml = role === 'ai' ? `<img src="logo.png" class="chat-avatar" onerror="this.src='https://ui-avatars.com/api/?name=AI&background=38bdf8&color=fff'">` : '';
 
-            wrapper.innerHTML = messageHtml;
+            wrapper.innerHTML = `
+                ${avatarHtml}
+                <div class="message ${role}-msg">${formattedText}</div>
+            `;
+
             chatMessages.appendChild(wrapper);
-
-            // Smooth scroll to bottom
-            setTimeout(() => {
-                chatMessages.scrollTo({
-                    top: chatMessages.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }, 50);
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
 
             if (!isHuman) {
                 chatHistory.push({ role: role === 'user' ? 'user' : 'assistant', content: text });
@@ -163,35 +141,20 @@
             const question = userInput.value.trim();
             if (!question) return;
 
-            const historyToSend = [...chatHistory];
             addMessage(question, 'user');
             userInput.value = '';
             loading.style.display = 'flex';
-
-            // Scroll to show loading indicator
-            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
 
             try {
                 const res = await fetch(`${API_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question, history: historyToSend, chatId })
+                    body: JSON.stringify({ question, history: chatHistory.slice(0, -1), chatId })
                 });
-
-                if (!res.ok) throw new Error('فشل الاتصال بالخادم');
-
                 const data = await res.json();
-
-                if (data.reply) {
-                    addMessage(data.reply, 'ai');
-                } else if (data.paused) {
-                    // Handled gracefully in addMessage or locally
-                } else {
-                    addMessage('عذراً، حدث خطأ غير متوقع في التواصل مع نيورا.', 'ai');
-                }
+                if (data.reply) addMessage(data.reply, 'ai');
             } catch (err) {
-                console.error(err);
-                addMessage('للأسف واجهنا مشكلة في الاتصال بالخادم. يرجى المحاولة لاحقاً.', 'ai');
+                addMessage('للأسف واجهنا مشكلة في الاتصال.', 'ai');
             } finally {
                 loading.style.display = 'none';
             }

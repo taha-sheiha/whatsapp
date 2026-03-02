@@ -70,7 +70,10 @@ async function connectToWhatsApp(onMessage, onUpdate) {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type === 'notify') {
                 for (const msg of messages) {
-                    await onMessage(sock, msg);
+                    // Fire and forget: handle each message in parallel
+                    onMessage(sock, msg).catch(err => {
+                        logger.error(`Error processing message ${msg.key?.id}:`, err);
+                    });
                 }
             }
         });

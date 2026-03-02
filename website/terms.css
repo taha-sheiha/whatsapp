@@ -1,0 +1,64 @@
+/* terms.css */
+:root {
+    --bg: #030712;
+    --card-bg: rgba(17, 24, 39, 0.8);
+    --primary: #818cf8;
+    --text-main: #f1f5f9;
+    --text-dim: #94a3b8;
+}
+
+body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    margin: 0;
+    padding: 80px 10%;
+    line-height: 2;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--card-bg);
+    padding: 60px;
+    border-radius: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+}
+
+h1 {
+    color: var(--primary);
+    font-size: 2.8rem;
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+h2 {
+    color: white;
+    font-size: 1.6rem;
+    margin-top: 50px;
+    border-right: 4px solid var(--primary);
+    padding-right: 20px;
+}
+
+p {
+    color: var(--text-dim);
+    margin-bottom: 25px;
+}
+
+.back-home {
+    display: inline-block;
+    padding: 15px 35px;
+    background: var(--primary);
+    color: #0f172a;
+    text-decoration: none;
+    border-radius: 12px;
+    font-weight: 800;
+    margin-top: 50px;
+    transition: 0.3s;
+}
+
+.back-home:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(129, 140, 248, 0.3);
+}
