@@ -1,0 +1,285 @@
+==> Available at your primary URL https://whatsapp-jswp.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
+[01:48:20] INFO: Starting Render Server for WhatsApp Bot...
+[01:48:20] INFO: Server is running on port 10000 🚀
+[01:48:27] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:48:28] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "5IlwEwNct8K931AtB/C/OxuClyf8dqWXpMbWWcl8qSc="
+      }
+    }
+[01:48:28] INFO: logging in...
+    module: "baileys"
+    node: {
+      "username": "201200742427",
+      "passive": false,
+      "userAgent": {
+        "platform": "WEB",
+        "appVersion": {
+          "primary": 2,
+          "secondary": 3000,
+          "tertiary": 1033846690
+        },
+        "mcc": "000",
+        "mnc": "000",
+        "osVersion": "0.1",
+        "device": "Desktop",
+        "osBuildNumber": "0.1",
+        "releaseChannel": "RELEASE",
+        "localeLanguageIso6391": "en",
+        "localeCountryIso31661Alpha2": "US"
+      },
+      "webInfo": {
+        "webSubPlatform": "WEB_BROWSER"
+      },
+      "connectType": "WIFI_UNKNOWN",
+      "connectReason": "USER_ACTIVATED",
+      "device": 20,
+      "pull": true
+    }
+[01:48:29] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:48:29] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "nrphSmBc8w/NwbyxSBAbHo8aw//qKcYuIHOfPDZ1AiQ="
+      }
+    }
+[01:48:29] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:48:29] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:48:29] ERROR: Connection closed. Status: undefined. Reason:
+[01:48:29] INFO: Reconnecting in 5 seconds...
+[01:48:29] INFO: connection errored
+    module: "baileys"
+    trace: "Error: Connection Failure\n    at WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:515:13)\n    at WebSocketClient.emit (node:events:519:28)\n    at file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:230:35\n    at Object.decodeFrame (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:140:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)"
+[01:48:29] ERROR: Connection closed. Status: 401. Reason:
+[01:48:29] WARN: Session is invalid or logged out. Please clear session and re-link.
+[01:48:36] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:48:37] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "EliPaUcemHYAT6QlwpMfJYat89BWseuH27+6CNfaHQA="
+      }
+    }
+[01:48:37] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:48:37] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:48:37] ERROR: Connection closed. Status: undefined. Reason:
+[01:48:37] INFO: Reconnecting in 5 seconds...
+[01:48:44] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:48:44] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "6yFNrzwy3AowrmJLPLdbVnoOYjuiuilHcondGzcY/j0="
+      }
+    }
+[01:48:45] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:48:45] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:48:45] ERROR: Connection closed. Status: undefined. Reason:
+[01:48:45] INFO: Reconnecting in 5 seconds...
+[01:48:52] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:48:52] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "zBMKpKHpBevJ3heBPjBgHR95v2OtWWIWc4Hm+AuHIhs="
+      }
+    }
+[01:48:53] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:48:53] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:48:53] ERROR: Connection closed. Status: undefined. Reason:
+[01:48:53] INFO: Reconnecting in 5 seconds...
+[01:49:00] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:49:00] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "YUTsX/YgKhDwy5NQhX1n+9xlA4ikDwapO02m+qvfoSw="
+      }
+    }
+[01:49:00] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:49:00] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:49:00] ERROR: Connection closed. Status: undefined. Reason:
+[01:49:00] INFO: Reconnecting in 5 seconds...
+[01:49:08] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:49:08] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "ySgYEHYEUr/vu43MDm0XSh/32xz1bJPFm7TDTOiXPG8="
+      }
+    }
+[01:49:09] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:49:09] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:49:09] ERROR: Connection closed. Status: undefined. Reason:
+[01:49:09] INFO: Reconnecting in 5 seconds...
+[01:49:16] INFO: Remote session loaded from Cloudflare D1 ☁️
+[01:49:16] INFO: connected to WA
+    module: "baileys"
+    browser: [
+      "NeuraBot",
+      "Chrome",
+      "1.0.0"
+    ]
+    helloMsg: {
+      "clientHello": {
+        "ephemeral": "409a7aNMv8cAsMu0F4zMAzEQYQVmsEVHuVSoeStoq1A="
+      }
+    }
+[01:49:17] ERROR: error in validating connection
+    module: "baileys"
+    err: {
+      "type": "TypeError",
+      "message": "The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object",
+      "stack":
+          TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object
+              at Cipheriv.update (node:internal/crypto/cipher:168:11)
+              at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)
+              at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)
+              at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)
+              at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)
+              at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)
+      "code": "ERR_INVALID_ARG_TYPE"
+    }
+[01:49:17] INFO: connection errored
+    module: "baileys"
+    trace: "TypeError [ERR_INVALID_ARG_TYPE]: The \"data\" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object\n    at Cipheriv.update (node:internal/crypto/cipher:168:11)\n    at aesEncryptGCM (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js:47:34)\n    at encrypt (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:19:24)\n    at Object.processHandshake (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:88:28)\n    at async validateConnection (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:155:24)\n    at async WebSocketClient.<anonymous> (file:///opt/render/project/src/bot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:437:13)"
+[01:49:17] ERROR: Connection closed. Status: undefined. Reason:
+[01:49:17] INFO: Reconnecting in 5 seconds...
+==> Detected service running on port 10000
+==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
