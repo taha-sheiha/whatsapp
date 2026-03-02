@@ -63,6 +63,7 @@ async function startServer() {
                         <div style="margin-top:20px;">
                             <p style="color: #4ade80;">البوت شغال دلوقتي وبيرد على الرسايل تلقائياً.</p>
                             <div style="font-size: 4rem;">🤖</div>
+                            <button onclick="logout()" style="margin-top: 30px; padding: 10px 20px; background: transparent; border: 1px solid #f87171; border-radius: 5px; color: #f87171; cursor: pointer;">تسجيل الخروج (Logout)</button>
                         </div>
                     ` : currentPairingCode ? `
                         <div style="margin-top:20px;">
@@ -78,12 +79,20 @@ async function startServer() {
                                     fetch('/api/reset-pairing', { method: 'POST' })
                                         .then(() => location.reload());
                                 }
+                                function logout() {
+                                    if(confirm('هل أنت متأكد من رغبتك في مسح الجلسة والبدء من جديد؟')) {
+                                        fetch('/api/logout', { method: 'POST' })
+                                            .then(() => location.reload());
+                                    }
+                                }
                             </script>
                         </div>
                     ` : currentQR ? `
                         <div style="margin-top:20px;">
                             <p>امسح الكود أو استخدم الربط برقم الهاتف (أفضل للسيرفرات):</p>
                             <img src="${currentQR}" alt="QR Code">
+                            <br>
+                            <button onclick="logout()" style="margin-top: 15px; padding: 10px 20px; background: transparent; border: 1px solid #f87171; border-radius: 5px; color: #f87171; cursor: pointer; font-size: 0.8rem;">مسح الجلسة تماماً (Reset)</button>
                             
                             <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
                             
@@ -116,6 +125,12 @@ async function startServer() {
                                         btn.innerText = 'طلب كود الربط';
                                         btn.disabled = false;
                                     });
+                                }
+                                function logout() {
+                                    if(confirm('هل أنت متأكد من رغبتك في مسح الجلسة والبدء من جديد؟')) {
+                                        fetch('/api/logout', { method: 'POST' })
+                                            .then(() => location.reload());
+                                    }
                                 }
                             </script>
                         </div>
@@ -150,6 +165,24 @@ async function startServer() {
     app.post('/api/reset-pairing', (req, res) => {
         currentPairingCode = null;
         res.json({ success: true });
+    });
+
+    app.post('/api/logout', async (req, res) => {
+        try {
+            logger.warn('Manual logout requested via Web UI');
+            // We just send an empty payload to the worker to effectively "clear" it for this ID
+            await axios.post(WORKER_SESSION_URL,
+                JSON.stringify({ id: 'neura-v2', data: { creds: null, keys: {} } }),
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+            currentPairingCode = null;
+            currentQR = null;
+            botStatus = 'disconnected';
+            res.json({ success: true });
+            // The bot will naturally reconnect and find the "empty" session in ~5 seconds
+        } catch (err) {
+            res.status(500).json({ error: 'فشل في مسح الجلسة' });
+        }
     });
 
     app.get('/ping', (req, res) => {

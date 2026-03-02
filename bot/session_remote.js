@@ -4,7 +4,7 @@ const logger = require('./logger');
 // Remote Session Config (via Cloudflare Worker)
 const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
 
-async function getRemoteAuthState(sessionId = 'neura-v1') {
+async function getRemoteAuthState(sessionId = 'neura-v2') {
     const { proto, initAuthCreds, BufferJSON } = await import('@whiskeysockets/baileys');
 
     let remoteData = { creds: null, keys: {} };
