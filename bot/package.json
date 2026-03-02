@@ -4,7 +4,6 @@
   "author": "CountaNeura",
   "description": "Stable WhatsApp AI Bot using Baileys",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js"
   },

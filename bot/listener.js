@@ -1,14 +1,14 @@
-import axios from 'axios';
-import logger from './logger.js';
-import { sendMessage } from './sender.js';
-import NodeCache from 'node-cache';
+const axios = require('axios');
+const logger = require('./logger');
+const { sendMessage } = require('./sender');
+const NodeCache = require('node-cache');
 
 // Configuration
 const AI_API_URL = process.env.AI_API_URL || 'https://ai.tahasheiha.workers.dev/chat'; // Default fallback
 const rateLimitCache = new NodeCache({ stdTTL: 60 }); // 60 seconds limit
 const messageCache = new NodeCache({ stdTTL: 10 }); // 10 seconds duplicate prevention
 
-export async function handleIncomingMessage(sock, msg, customApiUrl) {
+async function handleIncomingMessage(sock, msg, customApiUrl) {
     try {
         if (!msg.message || msg.key.fromMe) return;
 
@@ -62,3 +62,5 @@ export async function handleIncomingMessage(sock, msg, customApiUrl) {
         logger.error('Critical Error in listener:', error);
     }
 }
+
+module.exports = { handleIncomingMessage };
