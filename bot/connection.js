@@ -1,8 +1,9 @@
 import qrcodeLib from 'qrcode';
 import { getRemoteAuthState } from './session_remote.js';
 import logger from './logger.js';
-import pkg from '@whiskeysockets/baileys';
-const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = pkg;
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { default: makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 
 export async function connectToWhatsApp(onMessage, onUpdate) {
     logger.info('Initializing WhatsApp connection...');
