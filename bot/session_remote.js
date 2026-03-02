@@ -5,7 +5,7 @@ const logger = require('./logger');
 const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
 
 async function getRemoteAuthState(sessionId = 'default') {
-    const { proto, initCreds, Curve, signedKeyPair } = await import('@whiskeysockets/baileys');
+    const { proto, initAuthCreds, Curve, signedKeyPair } = await import('@whiskeysockets/baileys');
 
     // 1. Fetch from Remote DB
     let remoteData = null;
@@ -18,7 +18,7 @@ async function getRemoteAuthState(sessionId = 'default') {
     }
 
     // 2. Initialize State
-    let creds = remoteData?.creds || initCreds();
+    let creds = remoteData?.creds || initAuthCreds();
 
     return {
         state: {
