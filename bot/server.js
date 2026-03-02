@@ -8,12 +8,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 let currentQR = null;
+let currentPairingCode = null;
 let botStatus = 'disconnected';
+let waSock = null;
 
 async function startServer() {
     logger.info('Starting Render Server for WhatsApp Bot...');
 
     // Start Express immediately so Render doesn't kill the process due to timeout
+    app.use(express.json());
     app.listen(PORT, () => {
         logger.info(`Server is running on port ${PORT} 🚀`);
     });
@@ -38,10 +41,11 @@ async function startServer() {
                     p { color: #94a3b8; line-height: 1.6; }
                     .loader { border: 4px solid #f3f3f3; border-top: 4px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 20px auto; }
                     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    .code-box { background: #334155; padding: 15px; border-radius: 10px; font-size: 2rem; letter-spacing: 5px; font-family: monospace; display: inline-block; margin-top: 10px; }
                 </style>
                 <script>
                     const currentStatus = '${botStatus}';
-                    if (currentStatus !== 'connected') {
+                    if (currentStatus !== 'connected' && !${!!currentPairingCode}) {
                         setInterval(() => location.reload(), 15000);
                     }
                 </script>
@@ -55,19 +59,60 @@ async function startServer() {
                         ${botStatus === 'connected' ? 'الحالة: متصل بنجاح ✅' : 'الحالة: في انتظار الربط... ⏳'}
                     </div>
 
-                    ${currentQR ? `
-                        <div style="margin-top:20px;">
-                            <p>افتح الواتساب على موبايلك واعمل Link a Device:</p>
-                            <img src="${currentQR}" alt="QR Code">
-                        </div>
-                    ` : botStatus === 'connected' ? `
+                    ${botStatus === 'connected' ? `
                         <div style="margin-top:20px;">
                             <p style="color: #4ade80;">البوت شغال دلوقتي وبيرد على الرسايل تلقائياً.</p>
                             <div style="font-size: 4rem;">🤖</div>
                         </div>
+                    ` : currentPairingCode ? `
+                        <div style="margin-top:20px;">
+                            <p>أدخل هذا الكود في واتساب للربط:</p>
+                            <div class="code-box">${currentPairingCode}</div>
+                            <p style="font-size: 0.9em; color:#94a3b8; margin-top: 15px;">افتح واتساب > الأجهزة المرتبطة > ربط جهاز > الربط برقم هاتف بدلاً من ذلك</p>
+                            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: transparent; border: 1px solid #38bdf8; border-radius: 5px; color: #38bdf8; cursor: pointer;">تحديث الحالة</button>
+                        </div>
+                    ` : currentQR ? `
+                        <div style="margin-top:20px;">
+                            <p>امسح الكود أو استخدم الربط برقم الهاتف (أفضل للسيرفرات):</p>
+                            <img src="${currentQR}" alt="QR Code">
+                            
+                            <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
+                            
+                            <input type="text" id="phoneInput" placeholder="رقمك بالصيغة الدولية (مثال: 2010...)" style="padding: 12px; width: 80%; border-radius: 8px; border: 1px solid #475569; background: #1e293b; color: white; margin-bottom: 10px; text-align: center; font-size: 1.1rem; direction: ltr;">
+                            <br>
+                            <button onclick="requestPairingCode()" style="padding: 12px 25px; background: #38bdf8; border: none; border-radius: 8px; color: #0f172a; cursor: pointer; font-weight: bold; font-size: 1.1rem; width: 85%;">طلب كود الربط</button>
+                            <script>
+                                function requestPairingCode() {
+                                    const phone = document.getElementById('phoneInput').value;
+                                    if(!phone) return alert('برجاء إدخال رقم الهاتف مع مفتاح الدولة');
+                                    
+                                    const btn = document.querySelector('button');
+                                    btn.innerText = 'جاري الطلب...';
+                                    btn.disabled = true;
+
+                                    fetch('/api/pairing-code', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ phone })
+                                    }).then(r => r.json()).then(res => {
+                                        if(res.error) {
+                                            alert(res.error);
+                                            btn.innerText = 'طلب كود الربط';
+                                            btn.disabled = false;
+                                        } else {
+                                            location.reload();
+                                        }
+                                    }).catch(e => {
+                                        alert('حدث خطأ في الاتصال بالسيرفر');
+                                        btn.innerText = 'طلب كود الربط';
+                                        btn.disabled = false;
+                                    });
+                                }
+                            </script>
+                        </div>
                     ` : `
                         <div class="loader"></div>
-                        <p>جاري توليد الباركود، لحظات من فضلك...</p>
+                        <p>جاري توليد بيئة الربط، لحظات من فضلك...</p>
                     `}
                 </div>
             </body>
@@ -76,13 +121,30 @@ async function startServer() {
         res.send(html);
     });
 
+    app.post('/api/pairing-code', async (req, res) => {
+        const phone = req.body.phone;
+        if (!phone) return res.status(400).json({ error: 'برجاء إدخال رقم الهاتف' });
+        if (!waSock) return res.status(400).json({ error: 'السيرفر ما زال يتهيأ، جرب كمان ١٠ ثواني' });
+
+        try {
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const code = await waSock.requestPairingCode(cleanPhone);
+            currentPairingCode = code;
+            logger.info(`Pairing code generated for ${cleanPhone}: ${code}`);
+            res.json({ code });
+        } catch (err) {
+            logger.error('Error requesting pairing code:', err);
+            res.status(500).json({ error: 'فشل في طلب الكود، تأكد من الرقم واكتبه بصيغة صحيحة (مثال 2010...)' });
+        }
+    });
+
     app.get('/ping', (req, res) => {
         res.send('pong');
     });
 
     // Start WhatsApp Bot in the background
     try {
-        await connectToWhatsApp(
+        waSock = await connectToWhatsApp(
             handleIncomingMessage,
             (update) => {
                 if (update.type === 'qr') {

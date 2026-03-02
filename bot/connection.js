@@ -11,11 +11,14 @@ async function connectToWhatsApp(onMessage, onUpdate) {
         const { state, saveCreds } = await getRemoteAuthState();
         const { version } = await fetchLatestBaileysVersion();
 
+        let usePairingCode = false;
+
         const sock = makeWASocket({
             version,
             auth: state,
-            logger: logger.child({ module: 'baileys' }),
-            browser: ['NeuraBot', 'Chrome', '1.0.0']
+            logger: logger.child({ module: 'baileys', level: 'silent' }), // reduce noise
+            browser: ['NeuraBot', 'Chrome', '1.0.0'],
+            printQRInTerminal: false
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -24,11 +27,10 @@ async function connectToWhatsApp(onMessage, onUpdate) {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
-                logger.info('QR Code received from Baileys');
+                logger.info('QR Code received. Try scanning, or wait for Pairing Code fallback.');
                 if (onUpdate) {
                     try {
                         const qrImage = await qrcodeLib.toDataURL(qr);
-                        logger.info('QR Image generated successfully');
                         onUpdate({ type: 'qr', data: qrImage });
                     } catch (qrErr) {
                         logger.error('Error generating QR Image:', qrErr);
