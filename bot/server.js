@@ -48,6 +48,45 @@ async function startServer() {
                     if (currentStatus !== 'connected' && !${!!currentPairingCode}) {
                         setInterval(() => location.reload(), 15000);
                     }
+
+                    function logout() {
+                        if(confirm('هل أنت متأكد من رغبتك في مسح الجلسة والبدء من جديد؟')) {
+                            fetch('/api/logout', { method: 'POST' })
+                                .then(() => location.reload());
+                        }
+                    }
+
+                    function resetPairing() {
+                        fetch('/api/reset-pairing', { method: 'POST' })
+                            .then(() => location.reload());
+                    }
+
+                    function requestPairingCode() {
+                        const phone = document.getElementById('phoneInput').value;
+                        if(!phone) return alert('برجاء إدخال رقم الهاتف مع مفتاح الدولة');
+                        
+                        const btn = document.getElementById('pairBtn');
+                        btn.innerText = 'جاري الطلب...';
+                        btn.disabled = true;
+
+                        fetch('/api/pairing-code', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ phone })
+                        }).then(r => r.json()).then(res => {
+                            if(res.error) {
+                                alert(res.error);
+                                btn.innerText = 'طلب كود الربط';
+                                btn.disabled = false;
+                            } else {
+                                location.reload();
+                            }
+                        }).catch(e => {
+                            alert('حدث خطأ في الاتصال بالسيرفر');
+                            btn.innerText = 'طلب كود الربط';
+                            btn.disabled = false;
+                        });
+                    }
                 </script>
             </head>
             <body>
@@ -74,18 +113,6 @@ async function startServer() {
                                 <button onclick="location.reload()" style="padding: 10px 20px; background: transparent; border: 1px solid #38bdf8; border-radius: 5px; color: #38bdf8; cursor: pointer; margin-left: 10px;">تحديث الحالة</button>
                                 <button onclick="resetPairing()" style="padding: 10px 20px; background: transparent; border: 1px solid #f87171; border-radius: 5px; color: #f87171; cursor: pointer;">رجوع للخلف</button>
                             </div>
-                            <script>
-                                function resetPairing() {
-                                    fetch('/api/reset-pairing', { method: 'POST' })
-                                        .then(() => location.reload());
-                                }
-                                function logout() {
-                                    if(confirm('هل أنت متأكد من رغبتك في مسح الجلسة والبدء من جديد؟')) {
-                                        fetch('/api/logout', { method: 'POST' })
-                                            .then(() => location.reload());
-                                    }
-                                }
-                            </script>
                         </div>
                     ` : currentQR ? `
                         <div style="margin-top:20px;">
@@ -98,41 +125,7 @@ async function startServer() {
                             
                             <input type="text" id="phoneInput" placeholder="رقمك بالصيغة الدولية (مثال: 2010...)" style="padding: 12px; width: 80%; border-radius: 8px; border: 1px solid #475569; background: #1e293b; color: white; margin-bottom: 10px; text-align: center; font-size: 1.1rem; direction: ltr;">
                             <br>
-                            <button onclick="requestPairingCode()" style="padding: 12px 25px; background: #38bdf8; border: none; border-radius: 8px; color: #0f172a; cursor: pointer; font-weight: bold; font-size: 1.1rem; width: 85%;">طلب كود الربط</button>
-                            <script>
-                                function requestPairingCode() {
-                                    const phone = document.getElementById('phoneInput').value;
-                                    if(!phone) return alert('برجاء إدخال رقم الهاتف مع مفتاح الدولة');
-                                    
-                                    const btn = document.querySelector('button');
-                                    btn.innerText = 'جاري الطلب...';
-                                    btn.disabled = true;
-
-                                    fetch('/api/pairing-code', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ phone })
-                                    }).then(r => r.json()).then(res => {
-                                        if(res.error) {
-                                            alert(res.error);
-                                            btn.innerText = 'طلب كود الربط';
-                                            btn.disabled = false;
-                                        } else {
-                                            location.reload();
-                                        }
-                                    }).catch(e => {
-                                        alert('حدث خطأ في الاتصال بالسيرفر');
-                                        btn.innerText = 'طلب كود الربط';
-                                        btn.disabled = false;
-                                    });
-                                }
-                                function logout() {
-                                    if(confirm('هل أنت متأكد من رغبتك في مسح الجلسة والبدء من جديد؟')) {
-                                        fetch('/api/logout', { method: 'POST' })
-                                            .then(() => location.reload());
-                                    }
-                                }
-                            </script>
+                            <button id="pairBtn" onclick="requestPairingCode()" style="padding: 12px 25px; background: #38bdf8; border: none; border-radius: 8px; color: #0f172a; cursor: pointer; font-weight: bold; font-size: 1.1rem; width: 85%;">طلب كود الربط</button>
                         </div>
                     ` : `
                         <div class="loader"></div>
