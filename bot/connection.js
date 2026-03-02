@@ -68,13 +68,22 @@ async function connectToWhatsApp(onMessage, onUpdate) {
         });
 
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
-            if (type === 'notify') {
-                for (const msg of messages) {
-                    // Fire and forget: handle each message in parallel
-                    onMessage(sock, msg).catch(err => {
-                        logger.error(`Error processing message ${msg.key?.id}:`, err);
-                    });
-                }
+            // Log every upsert event type for diagnostics
+            logger.info(`[UPSERT] type="${type}" | count=${messages.length}`);
+
+            // 'notify' = new incoming message (primary)
+            // 'append' = can also carry real user messages in multi-device mode
+            if (type !== 'notify' && type !== 'append') {
+                logger.info(`[UPSERT] Ignoring type="${type}"`);
+                return;
+            }
+
+            for (const msg of messages) {
+                // Fire and forget: handle each message in parallel
+                // Deduplication in listener.js prevents double-processing
+                onMessage(sock, msg).catch(err => {
+                    logger.error(`Error processing message ${msg.key?.id}:`, err);
+                });
             }
         });
 
