@@ -4,21 +4,17 @@ const { sendMessage } = require('./sender');
 const NodeCache = require('node-cache');
 
 // Configuration
-const AI_API_URL = process.env.AI_API_URL || 'https://ai.tahasheiha.workers.dev/chat'; // Default fallback
-const rateLimitCache = new NodeCache({ stdTTL: 60 }); // 60 seconds limit
-const messageIdCache = new NodeCache({ stdTTL: 3600 }); // 1 hour for message ID deduplication
+const AI_API_URL = process.env.AI_API_URL || 'https://ai.tahasheiha.workers.dev/chat';
+const rateLimitCache = new NodeCache({ stdTTL: 60 });
+const messageIdCache = new NodeCache({ stdTTL: 3600 });
 
 /**
  * Recursively extracts text from complex Baileys message objects
  */
 function extractText(msg) {
     if (!msg) return "";
-
-    // Check direct properties
     if (typeof msg === 'string') return msg;
-
     const m = msg.message || msg;
-
     return m.conversation ||
         m.extendedTextMessage?.text ||
         m.imageMessage?.caption ||
@@ -35,60 +31,90 @@ function extractText(msg) {
 }
 
 async function handleIncomingMessage(sock, msg, customApiUrl) {
+    const msgId = msg.key?.id || 'unknown';
+    const sender = msg.key?.remoteJid || 'unknown';
+
     try {
-        if (!msg.message || msg.key.fromMe) return;
+        // STEP 1: Basic filter
+        if (!msg.message) {
+            logger.debug(`[SKIP] No message object. ID: ${msgId}`);
+            return;
+        }
+        if (msg.key.fromMe) {
+            logger.debug(`[SKIP] fromMe=true (our own reply). ID: ${msgId}`);
+            return;
+        }
 
-        const sender = msg.key.remoteJid;
-        const msgId = msg.key.id;
-
-        // 1. Deduplication by Message ID (Robust)
+        // STEP 2: Deduplication by Message ID
         if (messageIdCache.has(msgId)) {
-            logger.debug(`Duplicate message ID ignored: ${msgId}`);
+            logger.warn(`[DEDUP] Already processed ID: ${msgId}. Skipping.`);
             return;
         }
         messageIdCache.set(msgId, true);
 
-        // 2. Extract Text
+        // STEP 3: Extract Text
         const text = extractText(msg);
+        const msgTypes = Object.keys(msg.message || {}).join(', ');
+        logger.info(`[RECV] From: ${sender} | ID: ${msgId} | Types: ${msgTypes}`);
 
         if (!text || text.trim() === '') {
-            logger.info(`Ignored non-text or unsupported message type from ${sender}. ID: ${msgId}`);
+            logger.warn(`[SKIP] Empty text after extraction. Types: ${msgTypes}. ID: ${msgId}`);
             return;
         }
 
-        // 3. Rate Limiting (Max 10 messages per 60s per user)
+        // STEP 4: Rate Limiting
         const userRate = rateLimitCache.get(sender) || 0;
         if (userRate >= 10) {
-            logger.warn(`Rate limit hit for ${sender}. Blocking message.`);
+            logger.warn(`[RATE_LIMIT] Blocked ${sender}. Count: ${userRate}. ID: ${msgId}`);
             return;
         }
         rateLimitCache.set(sender, userRate + 1);
 
-        const timestamp = new Date(msg.messageTimestamp * 1000).toLocaleString();
-        logger.info(`Processing [${timestamp}] from ${sender}: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" (ID: ${msgId})`);
+        logger.info(`[PROCESS] Sending to AI | From: ${sender} | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
 
-        // 4. Process with AI API
+        // STEP 5: Call AI API
         const targetUrl = customApiUrl || AI_API_URL;
+        const chatId = `wa-${sender.split('@')[0]}`;
+
+        let response;
         try {
-            const response = await axios.post(targetUrl, {
+            response = await axios.post(targetUrl, {
                 question: text,
-                chatId: `wa-${sender.split('@')[0]}`,
+                chatId,
                 history: []
             }, { timeout: 25000 });
-
-            const aiReply = response.data.reply;
-            if (aiReply && aiReply.trim() !== '') {
-                await sendMessage(sock, sender, aiReply);
-                logger.info(`Replied to ${sender} for ID: ${msgId}`);
-            }
         } catch (apiError) {
             const status = apiError.response?.status;
-            logger.error(`AI API Error for ${sender}: [${status}] ${apiError.message}`);
+            const errBody = apiError.response?.data ? JSON.stringify(apiError.response.data) : apiError.message;
+            logger.error(`[API_ERR] Status: ${status} | ${errBody} | ID: ${msgId}`);
+            return;
         }
 
+        // STEP 6: Validate AI Response
+        const aiReply = response.data?.reply;
+        const isPaused = response.data?.paused;
+        const rawData = JSON.stringify(response.data).substring(0, 200);
+
+        if (isPaused) {
+            logger.warn(`[PAUSED] Session is paused on worker side. No reply sent. ID: ${msgId} | Data: ${rawData}`);
+            return;
+        }
+
+        if (!aiReply || aiReply.trim() === '') {
+            logger.warn(`[NO_REPLY] AI returned empty/null reply. ID: ${msgId} | Data: ${rawData}`);
+            return;
+        }
+
+        // STEP 7: Send Reply
+        logger.info(`[REPLY] Sending reply to ${sender}. Length: ${aiReply.length} chars. ID: ${msgId}`);
+        await sendMessage(sock, sender, aiReply);
+        logger.info(`[DONE] ✅ Reply sent to ${sender}. ID: ${msgId}`);
+
     } catch (error) {
-        logger.error(`Critical Error in listener for ID ${msg.key?.id}:`, error);
+        logger.error(`[CRASH] Unhandled error for ID ${msgId}: ${error.message}`);
+        if (error.stack) logger.error(error.stack);
     }
 }
 
 module.exports = { handleIncomingMessage, extractText };
+

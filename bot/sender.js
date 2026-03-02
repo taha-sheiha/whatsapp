@@ -5,9 +5,9 @@ let isProcessing = false;
 
 async function sendMessage(sock, jid, text) {
     if (!text || text.trim() === '') return;
-
     messageQueue.push({ sock, jid, text });
-    processQueue();
+    logger.debug(`[Sender] Queued message for ${jid}. Queue size: ${messageQueue.length}`);
+    if (!isProcessing) processQueue();
 }
 
 async function processQueue() {
@@ -17,15 +17,19 @@ async function processQueue() {
     const { sock, jid, text } = messageQueue.shift();
 
     try {
+        logger.info(`[Sender] Sending to ${jid}...`);
         await sock.sendMessage(jid, { text });
-        logger.info(`Message sent to ${jid}`);
+        logger.info(`[Sender] ✅ Sent to ${jid}`);
     } catch (error) {
-        logger.error(`Failed to send message to ${jid}:`, error);
-        // Retry logic could be added here
+        logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
+    } finally {
+        // CRITICAL: Always release the lock, even on error
+        isProcessing = false;
+        if (messageQueue.length > 0) {
+            // Small delay to avoid hammering WA servers
+            setTimeout(processQueue, 500);
+        }
     }
-
-    isProcessing = false;
-    processQueue();
 }
 
 module.exports = { sendMessage };
