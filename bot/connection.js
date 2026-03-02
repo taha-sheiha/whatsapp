@@ -48,11 +48,16 @@ async function connectToWhatsApp(onMessage, onUpdate) {
                     onUpdate({ type: 'status', data: 'disconnected' });
                 }
 
-                if (!isLoggedOut) {
-                    logger.info('Reconnecting in 5 seconds...');
-                    setTimeout(() => connectToWhatsApp(onMessage, onUpdate), 5000);
-                } else {
-                    logger.warn('Session is invalid or logged out. Please clear session and re-link.');
+                if (onUpdate) {
+                    onUpdate({ type: 'status', data: 'disconnected' });
+                }
+
+                const delay = isLoggedOut ? 10000 : 5000;
+                logger.info(`Reconnecting in ${delay / 1000} seconds...`);
+                setTimeout(() => connectToWhatsApp(onMessage, onUpdate), delay);
+
+                if (isLoggedOut) {
+                    logger.warn('Session is invalid or logged out. Waiting for re-link.');
                 }
             } else if (connection === 'open') {
                 logger.info('WhatsApp connection established successfully! ✅');

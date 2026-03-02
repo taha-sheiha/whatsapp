@@ -165,7 +165,7 @@ async function startServer() {
             logger.warn('Manual logout requested via Web UI');
             // We just send an empty payload to the worker to effectively "clear" it for this ID
             await axios.post(WORKER_SESSION_URL,
-                JSON.stringify({ id: 'neura-v2', data: { creds: null, keys: {} } }),
+                JSON.stringify({ id: 'neura-v3', data: { creds: null, keys: {} } }),
                 { headers: { 'Content-Type': 'application/json' } }
             );
             currentPairingCode = null;
