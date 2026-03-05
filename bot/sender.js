@@ -5,8 +5,40 @@ let isProcessing = false;
 
 async function sendMessage(sock, jid, text) {
     if (!text || text.trim() === '') return;
-    messageQueue.push({ sock, jid, text });
-    logger.debug(`[Sender] Queued message for ${jid}. Queue size: ${messageQueue.length}`);
+
+    // Support for [IMAGE:URL], [VIDEO:URL], [FILE:URL]
+    const mediaMatch = text.match(/\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/i);
+
+    if (mediaMatch) {
+        let type = mediaMatch[1].toLowerCase();
+        let url = mediaMatch[2].trim();
+        let cleanText = text.replace(/\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/gi, '').trim();
+
+        // Default caption if empty
+        if (!cleanText) {
+            cleanText = (type === 'image' ? "صورة" : (type === 'video' ? "فيديو" : "ملف"));
+        }
+
+        const payload = {};
+        if (type === 'image') {
+            payload.image = { url: url };
+            payload.caption = cleanText;
+        } else if (type === 'video') {
+            payload.video = { url: url };
+            payload.caption = cleanText;
+        } else if (type === 'file') {
+            payload.document = { url: url };
+            payload.fileName = "Document." + url.split('.').pop();
+            payload.caption = cleanText;
+        }
+
+        messageQueue.push({ sock, jid, payload });
+        logger.debug(`[Sender] Queued media message (${type}) for ${jid}.`);
+    } else {
+        messageQueue.push({ sock, jid, payload: { text } });
+        logger.debug(`[Sender] Queued text message for ${jid}.`);
+    }
+
     if (!isProcessing) processQueue();
 }
 
@@ -14,19 +46,17 @@ async function processQueue() {
     if (isProcessing || messageQueue.length === 0) return;
     isProcessing = true;
 
-    const { sock, jid, text } = messageQueue.shift();
+    const { sock, jid, payload } = messageQueue.shift();
 
     try {
         logger.info(`[Sender] Sending to ${jid}...`);
-        await sock.sendMessage(jid, { text });
+        await sock.sendMessage(jid, payload);
         logger.info(`[Sender] ✅ Sent to ${jid}`);
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
     } finally {
-        // CRITICAL: Always release the lock, even on error
         isProcessing = false;
         if (messageQueue.length > 0) {
-            // Small delay to avoid hammering WA servers
             setTimeout(processQueue, 500);
         }
     }
