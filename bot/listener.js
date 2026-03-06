@@ -100,7 +100,9 @@ async function handleIncomingMessage(sock, msg, customApiUrl) {
         // STEP 6: Validate AI Response
         const aiReply = response.data?.reply;
         const isPaused = response.data?.paused;
-        const rawData = JSON.stringify(response.data).substring(0, 200);
+        const rawData = JSON.stringify(response.data).substring(0, 500);
+
+        logger.info(`[AI_DEBUG] Raw AI Reply: "${aiReply}"`);
 
         if (isPaused) {
             logger.warn(`[PAUSED] Session is paused on worker side. No reply sent. ID: ${msgId} | Data: ${rawData}`);
