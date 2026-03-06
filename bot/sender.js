@@ -19,33 +19,41 @@ async function sendMessage(sock, jid, text) {
         logger.info(`[Sender_MEDIA] Detected ${type}. Fetching buffer from: ${url}`);
 
         try {
-            // Fetch the media as a buffer to avoid library URL upload issues
             const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
             const buffer = Buffer.from(response.data);
-            const ext = url.split('.').pop().toLowerCase();
+            const ext = url.split('.').pop().toLowerCase().split('?')[0]; // Clean extension
 
             if (!cleanText) {
                 cleanText = (type === 'image' ? "صورة" : (type === 'video' ? "فيديو" : "ملف"));
             }
 
             const payload = {};
+            // Precise mimetypes are crucial for Baileys
+            const mimeMap = {
+                'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp', 'gif': 'image/gif',
+                'pdf': 'application/pdf', 'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'mp4': 'video/mp4'
+            };
+
+            const mimetype = mimeMap[ext] || (type === 'image' ? 'image/jpeg' : (type === 'video' ? 'video/mp4' : 'application/octet-stream'));
+
             if (type === 'image') {
                 payload.image = buffer;
                 payload.caption = cleanText;
-                payload.mimetype = 'image/' + (ext === 'jpg' ? 'jpeg' : ext);
+                payload.mimetype = mimetype;
             } else if (type === 'video') {
                 payload.video = buffer;
                 payload.caption = cleanText;
-                payload.mimetype = 'video/mp4';
+                payload.mimetype = mimetype;
             } else if (type === 'file') {
                 payload.document = buffer;
-                payload.fileName = "Document." + ext;
+                payload.fileName = "Neriva_File." + ext;
                 payload.caption = cleanText;
-                const mimeMap = { 'pdf': 'application/pdf', 'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
-                payload.mimetype = mimeMap[ext] || 'application/octet-stream';
+                payload.mimetype = mimetype;
             }
 
-            logger.debug(`[Sender_DEBUG] Media Buffer Ready (${buffer.length} bytes). Queuing.`);
+            logger.info(`[Sender_MEDIA] Buffer Ready: ${buffer.length} bytes | Type: ${mimetype}.`);
             messageQueue.push({ sock, jid, payload });
         } catch (fetchErr) {
             logger.error(`[Sender_ERR] Failed to fetch media from ${url}: ${fetchErr.message}`);
