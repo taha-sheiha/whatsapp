@@ -85,9 +85,17 @@ async function startServer() {
     app.get('/api/whatsapp/status', (req, res) => {
         const { session, companyId } = req.query;
         if (!session || !companyId) return res.status(400).json({ error: 'session and companyId required' });
+        
         const combinedKey = `${companyId}:${session}`;
+        logger.info(`[Status API] Request for: ${combinedKey}`);
+        
         const sess = sessions.get(combinedKey);
-        if (!sess) return res.json({ status: 'not_started', qr: null, pairingCode: null });
+        if (!sess) {
+            logger.warn(`[Status API] Session NOT FOUND in registry: ${combinedKey}`);
+            return res.json({ status: 'not_started', qr: null, pairingCode: null });
+        }
+        
+        logger.info(`[Status API] Found session. Status: ${sess.status}, Has QR: ${!!sess.qr}`);
         res.json({
             status: sess.status,
             qr: sess.qr,
