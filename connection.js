@@ -60,6 +60,7 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
         });
 
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            logger.info(`[UPSERT] Received ${messages.length} messages. Type: ${type}`);
             if (type !== 'notify' && type !== 'append') return;
             for (const msg of messages) {
                 onMessage(sock, msg, sessionId).catch(err => {

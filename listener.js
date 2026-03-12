@@ -34,6 +34,7 @@ function extractText(msg) {
 }
 
 async function handleIncomingMessage(sock, msg, companyId, customApiUrl, sessionId) {
+    logger.info(`[LISTENER] Entry - sessionId: ${sessionId}, msgId: ${msg.key?.id}, fromMe: ${msg.key?.fromMe}`);
     const msgId = msg.key?.id || 'unknown';
     const sender = msg.key?.remoteJid || 'unknown';
     const pushName = msg.pushName || 'عنيل واتساب';
