@@ -2,7 +2,7 @@ const axios = require('axios');
 const logger = require('./logger');
 
 // Remote Session Config (via Cloudflare Worker)
-const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
+const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://neura-worker.tahasheiha.workers.dev/bot-session';
 const BOT_SECRET = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
 
 async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
