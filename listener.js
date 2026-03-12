@@ -33,9 +33,10 @@ function extractText(msg) {
         "";
 }
 
-async function handleIncomingMessage(sock, msg, companyId, customApiUrl) {
+async function handleIncomingMessage(sock, msg, companyId, customApiUrl, sessionId) {
     const msgId = msg.key?.id || 'unknown';
     const sender = msg.key?.remoteJid || 'unknown';
+    const pushName = msg.pushName || 'عنيل واتساب';
 
     try {
         // STEP 1: Basic filter
@@ -58,13 +59,12 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl) {
         // STEP 3: Extract Text
         const text = extractText(msg);
         const msgTypes = Object.keys(msg.message || {}).join(', ');
-        logger.info(`[RECV] From: ${sender} | ID: ${msgId} | Types: ${msgTypes}`);
+        logger.info(`[RECV] From: ${sender} (${pushName}) | ID: ${msgId} | Types: ${msgTypes}`);
 
         if (!text || text.trim() === '') {
             logger.warn(`[SKIP] Empty text after extraction. Types: ${msgTypes}. ID: ${msgId}`);
             return;
         }
-
         // STEP 4: Rate Limiting
         const userRate = rateLimitCache.get(sender) || 0;
         if (userRate >= 10) {
@@ -73,7 +73,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl) {
         }
         rateLimitCache.set(sender, userRate + 1);
 
-        logger.info(`[PROCESS] Sending to AI | From: ${sender} | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
+        logger.info(`[PROCESS] Sending to AI | From: ${sender} (${pushName}) | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
 
         // STEP 5: Call AI API
         const targetUrl = customApiUrl || AI_API_URL;
@@ -89,7 +89,9 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl) {
                 question: text,
                 chatId,
                 companyId,
-                history: history.slice(-20) // Send last 20 messages (10 exchanges)
+                userName: pushName,
+                sessionId: sessionId,
+                history: history.slice(-20) 
             }, { 
                 headers: { 'Authorization': `Bearer ${process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024'}` },
                 timeout: 25000 

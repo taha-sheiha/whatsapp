@@ -27,7 +27,7 @@ async function startSession(companyId, sessionId) {
  
     try {
         const sock = await connectToWhatsApp(
-            (sock, msg, sid) => handleIncomingMessage(sock, msg, companyId),
+            (sock, msg, sid) => handleIncomingMessage(sock, msg, companyId, null, sid),
             (update) => {
                 const sess = sessions.get(combinedKey) || {};
                 if (update.type === 'qr') {
