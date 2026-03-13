@@ -119,6 +119,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 chatId,
                 companyId,
                 userName,
+                platform: 'whatsapp',
                 accountName: sessionId || "WhatsApp",
                 history: history.slice(-20) // Send last 20 messages (10 exchanges)
             }, { 
