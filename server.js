@@ -195,23 +195,35 @@ async function startServer() {
         try {
             const rawPhone = targetId.split('@')[0];
             let remoteJid = targetId.includes('@') ? targetId : `${rawPhone}@s.whatsapp.net`;
+            let participantJid = null;
 
-            // We must NOT send messages back to @lid JIDs because WhatsApp drops them silently (ack: 2, but no delivery).
-            // Instead, we force sending to the real phone number JID (@s.whatsapp.net) which we extracted from senderPn.
-            if (remoteJid.includes('@lid')) {
-                logger.warn(`[WhatsApp Send] ⚠️ Attempted to send to @lid JID. Forcing conversion to @s.whatsapp.net to avoid silent failure.`);
-                remoteJid = `${rawPhone}@s.whatsapp.net`;
+            // 1st: Check jidMap for the exact JID received from the webhook.
+            // If the user messaged us via an @lid, we MUST reply to the @lid, not the phone number, 
+            // otherwise WhatsApp silently drops it for business accounts.
+            const chatIdKey = `wa-${rawPhone}`;
+            if (jidMap.has(chatIdKey)) {
+                remoteJid = jidMap.get(chatIdKey);
+                logger.info(`[WhatsApp Send] 🎯 Used real JID from jidMap for ${rawPhone}: ${remoteJid}`);
             }
 
-            // Fallback: Try onWhatsApp resolution just in case if the number is unregistered
-            try {
-                const [result] = await sess.sock.onWhatsApp(rawPhone);
-                if (result && result.exists) {
-                    remoteJid = result.jid;
-                    logger.info(`[WhatsApp Send] Resolved JID via onWhatsApp for ${rawPhone}: ${remoteJid}`);
+            // CRITICAL FIX FOR @lid SILENT DROPS: 
+            // We must send to the @lid, but we might need to specify the participant or some Baileys options.
+            // But wait, the previous fix replaced the @lid. Let's revert the forced replacement and let it use the @lid natively.
+            if (remoteJid.includes('@lid')) {
+                logger.info(`[WhatsApp Send] Targeting @lid natively: ${remoteJid}`);
+                // Optional: We can pass the real phone as a participant lookup if needed in sender
+                participantJid = `${rawPhone}@s.whatsapp.net`; 
+            } else {
+                // Fallback: Try onWhatsApp resolution just in case if the number is unregistered
+                try {
+                    const [result] = await sess.sock.onWhatsApp(rawPhone);
+                    if (result && result.exists) {
+                        remoteJid = result.jid;
+                        logger.info(`[WhatsApp Send] Resolved JID via onWhatsApp for ${rawPhone}: ${remoteJid}`);
+                    }
+                } catch (onWaErr) {
+                    logger.warn(`[WhatsApp Send] onWhatsApp resolution failed for ${rawPhone}, using default`);
                 }
-            } catch (onWaErr) {
-                logger.warn(`[WhatsApp Send] onWhatsApp resolution failed for ${rawPhone}, using default: ${onWaErr.message}`);
             }
 
             logger.info(`[WhatsApp Send] Final remoteJid: ${remoteJid}`);
@@ -228,8 +240,8 @@ async function startServer() {
                 cleanText = text.replace(/\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/gi, '').trim();
             }
 
-            // Use the shared sender logic and queue
-            await sendMessage(sess.sock, remoteJid, text);
+            // Use the shared sender logic and queue. Pass participant if lid.
+            await sendMessage(sess.sock, remoteJid, text, participantJid);
             
             res.json({ success: true, resolvedJid: remoteJid });
         } catch (e) {

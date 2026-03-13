@@ -156,15 +156,16 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // Keep only last 20 entries (10 exchanges) to avoid memory bloat
         if (history.length > 20) history.splice(0, history.length - 20);
 
-        // Force sending AI reply back to the real phone number, bypassing @lid which drops messages
+        // Force sending AI reply back to the real phone number as a participant, bypassing @lid which drops messages
         let replyTarget = sender;
+        let participantTag = null;
         if (sender.includes('@lid') && realPhone && realPhone !== sender.split('@')[0]) {
-            logger.warn(`[REPLY] Overriding @lid target to real phone: ${realPhone}@s.whatsapp.net`);
-            replyTarget = `${realPhone}@s.whatsapp.net`;
+            logger.info(`[REPLY] Detected @lid. Using original sender but adding participant: ${realPhone}@s.whatsapp.net`);
+            participantTag = `${realPhone}@s.whatsapp.net`;
         }
 
         logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
-        await sendMessage(sock, replyTarget, aiReply);
+        await sendMessage(sock, replyTarget, aiReply, participantTag);
         logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
 
     } catch (error) {

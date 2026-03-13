@@ -1,10 +1,10 @@
-﻿const axios = require('axios');
+const axios = require('axios');
 const logger = require('./logger');
 
 const messageQueue = [];
 let isProcessing = false;
 
-async function sendMessage(sock, jid, text) {
+async function sendMessage(sock, jid, text, participant = null) {
     if (!text || text.trim() === '') return;
 
     logger.debug(`[Sender_DEBUG] full text input: "${text}"`);
@@ -54,15 +54,15 @@ async function sendMessage(sock, jid, text) {
             }
 
             logger.info(`[Sender_MEDIA] Buffer Ready: ${buffer.length} bytes | Type: ${mimetype}.`);
-            messageQueue.push({ sock, jid, payload });
+            messageQueue.push({ sock, jid, payload, options: participant ? { participant } : undefined });
         } catch (fetchErr) {
             logger.error(`[Sender_ERR] Failed to fetch media from ${url}: ${fetchErr.message}`);
             // Fallback to text if media fails
-            messageQueue.push({ sock, jid, payload: { text: `${cleanText}\n\n(عذراً، فشل تحميل الوسائط المرفقة)` } });
+            messageQueue.push({ sock, jid, payload: { text: `${cleanText}\n\n(عذراً، فشل تحميل الوسائط المرفقة)` }, options: participant ? { participant } : undefined });
         }
     } else {
         logger.debug(`[Sender_DEBUG] No media found, sending as text.`);
-        messageQueue.push({ sock, jid, payload: { text } });
+        messageQueue.push({ sock, jid, payload: { text }, options: participant ? { participant } : undefined });
     }
 
     if (!isProcessing) processQueue();
@@ -72,11 +72,11 @@ async function processQueue() {
     if (isProcessing || messageQueue.length === 0) return;
     isProcessing = true;
 
-    const { sock, jid, payload } = messageQueue.shift();
+    const { sock, jid, payload, options } = messageQueue.shift();
 
     try {
-        logger.info(`[Sender] Sending to ${jid}...`);
-        await sock.sendMessage(jid, payload);
+        logger.info(`[Sender] Sending to ${jid}${options?.participant ? ` (participant: ${options.participant})` : ''}...`);
+        await sock.sendMessage(jid, payload, options);
         logger.info(`[Sender] ✅ Sent to ${jid}`);
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
