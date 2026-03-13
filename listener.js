@@ -2,6 +2,13 @@ const axios = require('axios');
 const logger = require('./logger');
 const { sendMessage } = require('./sender');
 const NodeCache = require('node-cache');
+// Lazy-require to avoid circular dependency — jidMap is populated by server.js
+let _jidMap = null;
+function getJidMap() {
+    if (!_jidMap) _jidMap = require('./server').jidMap;
+    return _jidMap;
+}
+
 
 // Configuration
 const AI_API_URL = process.env.AI_API_URL || 'https://neura-worker.tahasheiha.workers.dev/chat';
@@ -81,7 +88,10 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
 
         // STEP 5: Call AI API
         const targetUrl = customApiUrl || AI_API_URL;
-        const chatId = `wa-${sender.split('@')[0]}`;
+        const chatId = `wa-${phone}`;
+
+        // Store the real JID (could be @lid) so manual replies use the correct address
+        try { getJidMap().set(chatId, sender); } catch(e) { /* non-critical */ }
 
         // Get conversation history for this sender
         if (!conversationHistory.has(sender)) conversationHistory.set(sender, []);

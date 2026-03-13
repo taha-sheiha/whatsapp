@@ -14,6 +14,11 @@ const PORT = process.env.PORT || 3000;
 const sessions = new Map(); // combinedKey (companyId:sessionId) -> { sock, status, qr, pairingCode, pendingAction }
 const pendingLogins = new Map();
 
+// @lid JID resolver: maps chatId (wa-SENDERID) -> real remoteJid (could be @lid or @s.whatsapp.net)
+// This is critical for WhatsApp @lid accounts where the stored phone number != the actual JID
+const jidMap = new Map();
+module.exports.jidMap = jidMap;
+
 async function startSession(companyId, sessionId) {
     const combinedKey = `${companyId}:${sessionId}`;
     if (sessions.has(combinedKey)) {
@@ -190,17 +195,27 @@ async function startServer() {
         try {
             const rawPhone = targetId.split('@')[0];
             let remoteJid = targetId.includes('@') ? targetId : `${rawPhone}@s.whatsapp.net`;
-            
-            // Try to resolve the "real" JID (handles @lid mapping)
-            try {
-                const [result] = await sess.sock.onWhatsApp(rawPhone);
-                if (result && result.exists) {
-                    remoteJid = result.jid;
-                    logger.info(`[WhatsApp Send] Resolved JID for ${rawPhone}: ${remoteJid}`);
+
+            // 1st: Check jidMap for the real JID stored when message was received
+            // This is the most reliable source — handles @lid JIDs correctly
+            const chatIdKey = `wa-${rawPhone}`;
+            if (jidMap.has(chatIdKey)) {
+                remoteJid = jidMap.get(chatIdKey);
+                logger.info(`[WhatsApp Send] 🎯 Using real JID from jidMap for ${rawPhone}: ${remoteJid}`);
+            } else {
+                // 2nd fallback: Try onWhatsApp resolution
+                try {
+                    const [result] = await sess.sock.onWhatsApp(rawPhone);
+                    if (result && result.exists) {
+                        remoteJid = result.jid;
+                        logger.info(`[WhatsApp Send] Resolved JID via onWhatsApp for ${rawPhone}: ${remoteJid}`);
+                    }
+                } catch (onWaErr) {
+                    logger.warn(`[WhatsApp Send] onWhatsApp resolution failed for ${rawPhone}, using default: ${onWaErr.message}`);
                 }
-            } catch (onWaErr) {
-                logger.warn(`[WhatsApp Send] onWhatsApp resolution failed for ${rawPhone}, using default: ${onWaErr.message}`);
             }
+
+            logger.info(`[WhatsApp Send] Final remoteJid: ${remoteJid}`);
 
             // Parse media tags
             let mediaUrl = null;
