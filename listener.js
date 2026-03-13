@@ -156,9 +156,16 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // Keep only last 20 entries (10 exchanges) to avoid memory bloat
         if (history.length > 20) history.splice(0, history.length - 20);
 
-        logger.info(`[REPLY] Sending reply to ${sender}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
-        await sendMessage(sock, sender, aiReply);
-        logger.info(`[DONE] ✅ Reply sent to ${sender}. ID: ${msgId}`);
+        // Force sending AI reply back to the real phone number, bypassing @lid which drops messages
+        let replyTarget = sender;
+        if (sender.includes('@lid') && realPhone && realPhone !== sender.split('@')[0]) {
+            logger.warn(`[REPLY] Overriding @lid target to real phone: ${realPhone}@s.whatsapp.net`);
+            replyTarget = `${realPhone}@s.whatsapp.net`;
+        }
+
+        logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
+        await sendMessage(sock, replyTarget, aiReply);
+        logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
 
     } catch (error) {
         logger.error(`[CRASH] Unhandled error for ID ${msgId}: ${error.message}`);
