@@ -163,6 +163,59 @@ async function startServer() {
         res.json({ success: true, message: 'Session starting' });
     });
 
+    // POST /api/whatsapp/send — send a manual message or media via WhatsApp
+    app.post('/api/whatsapp/send', async (req, res) => {
+        const { session, companyId, targetId, text } = req.body;
+        if (!session || !companyId || !targetId || !text) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const combinedKey = `${companyId}:${session}`;
+        const sess = sessions.get(combinedKey);
+        if (!sess || !sess.sock) {
+            return res.status(404).json({ error: 'WhatsApp session not found or not connected' });
+        }
+
+        try {
+            const remoteJid = targetId.includes('@s.whatsapp.net') ? targetId : `${targetId}@s.whatsapp.net`;
+            
+            // Parse media tags
+            let mediaUrl = null;
+            let mediaType = 'text';
+            let cleanText = text;
+            
+            const mediaMatch = text.match(/\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/i);
+            if (mediaMatch) {
+                mediaType = mediaMatch[1].toLowerCase();
+                mediaUrl = mediaMatch[2].trim();
+                cleanText = text.replace(/\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/gi, '').trim();
+            }
+
+            if (mediaUrl) {
+                let msgPayload = {};
+                if (mediaType === 'image') {
+                    msgPayload = { image: { url: mediaUrl } };
+                    if (cleanText) msgPayload.caption = cleanText;
+                } else if (mediaType === 'video') {
+                    msgPayload = { video: { url: mediaUrl } };
+                    if (cleanText) msgPayload.caption = cleanText;
+                } else {
+                    msgPayload = { document: { url: mediaUrl }, fileName: 'Document' };
+                    if (cleanText) msgPayload.caption = cleanText;
+                }
+                
+                await sess.sock.sendMessage(remoteJid, msgPayload);
+            } else {
+                await sess.sock.sendMessage(remoteJid, { text: cleanText });
+            }
+            
+            res.json({ success: true });
+        } catch (e) {
+            logger.error(`[WhatsApp Send] Failed to send manual message:`, e);
+            res.status(500).json({ error: e.message || 'Failed to send WhatsApp message' });
+        }
+    });
+
     // POST /api/whatsapp/disconnect — logout a session
     app.post('/api/whatsapp/disconnect', async (req, res) => {
         const { session, companyId } = req.body;
