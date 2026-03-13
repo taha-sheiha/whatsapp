@@ -34,10 +34,8 @@ function extractText(msg) {
 }
 
 async function handleIncomingMessage(sock, msg, companyId, customApiUrl, sessionId) {
-    logger.info(`[LISTENER] Entry - sessionId: ${sessionId}, msgId: ${msg.key?.id}, fromMe: ${msg.key?.fromMe}`);
     const msgId = msg.key?.id || 'unknown';
     const sender = msg.key?.remoteJid || 'unknown';
-    const pushName = msg.pushName || 'عنيل واتساب';
 
     try {
         // STEP 1: Basic filter
@@ -60,12 +58,13 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // STEP 3: Extract Text
         const text = extractText(msg);
         const msgTypes = Object.keys(msg.message || {}).join(', ');
-        logger.info(`[RECV] From: ${sender} (${pushName}) | ID: ${msgId} | Types: ${msgTypes}`);
+        logger.info(`[RECV] From: ${sender} | ID: ${msgId} | Types: ${msgTypes}`);
 
         if (!text || text.trim() === '') {
             logger.warn(`[SKIP] Empty text after extraction. Types: ${msgTypes}. ID: ${msgId}`);
             return;
         }
+
         // STEP 4: Rate Limiting
         const userRate = rateLimitCache.get(sender) || 0;
         if (userRate >= 10) {
@@ -74,7 +73,11 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
         rateLimitCache.set(sender, userRate + 1);
 
-        logger.info(`[PROCESS] Sending to AI | From: ${sender} (${pushName}) | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
+        const pushName = msg.pushName || "";
+        const phone = sender.split('@')[0];
+        const userName = pushName ? `${pushName} (${phone})` : phone;
+
+        logger.info(`[PROCESS] Sending to AI | From: ${userName} | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
 
         // STEP 5: Call AI API
         const targetUrl = customApiUrl || AI_API_URL;
@@ -90,9 +93,9 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 question: text,
                 chatId,
                 companyId,
-                userName: pushName,
-                sessionId: sessionId,
-                history: history.slice(-20) 
+                userName,
+                accountName: sessionId || "WhatsApp",
+                history: history.slice(-20) // Send last 20 messages (10 exchanges)
             }, { 
                 headers: { 'Authorization': `Bearer ${process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024'}` },
                 timeout: 25000 
