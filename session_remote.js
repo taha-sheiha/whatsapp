@@ -1,7 +1,8 @@
 const logger = require('./logger');
 
 // Remote Session Config (via Cloudflare Worker)
-const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
+const WORKER_URL = process.env.WORKER_URL || 'https://neura-worker.tahasheiha.workers.dev';
+const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || `${WORKER_URL}/bot-session`;
 const BOT_SECRET = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
 
 async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetKeys = false) {
@@ -103,4 +104,26 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
     };
 }
 
-module.exports = { getRemoteAuthState };
+/**
+ * List all remote sessions from D1 for a given company (or all if no filter).
+ * Used by startAllSessions() on server startup to restore sessions.
+ */
+async function listRemoteSessions() {
+    try {
+        const listUrl = WORKER_URL + '/bot-sessions-list';
+        const res = await fetch(listUrl, {
+            headers: { 'Authorization': `Bearer ${BOT_SECRET}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) return data;
+        }
+        logger.warn('[Session List] No sessions returned from D1');
+        return [];
+    } catch (e) {
+        logger.error('[Session List] Failed to list remote sessions:', e.message);
+        return [];
+    }
+}
+
+module.exports = { getRemoteAuthState, listRemoteSessions };

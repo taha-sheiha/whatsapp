@@ -2,6 +2,7 @@ const express = require('express');
 const { connectToWhatsApp } = require('./connection');
 const { handleIncomingMessage } = require('./listener');
 const logger = require('./logger');
+const { listRemoteSessions } = require('./session_remote');
 const fs = require('fs');
 const path = require('path');
 
@@ -58,36 +59,66 @@ async function startSession(companyId, sessionId) {
 }
 
 
+/**
+ * startAllSessions — restores WhatsApp sessions at bot startup.
+ * Strategy: Load from D1 (survives Render restarts) as primary source.
+ * Falls back to local disk scan as secondary (handles dev environments).
+ */
 async function startAllSessions() {
-    logger.info('🔍 Scanning for existing WhatsApp sessions to restore...');
+    logger.info('🔍 Restoring WhatsApp sessions from D1...');
+    
+    // --- Primary: Load from D1 via Worker API ---
+    let d1Sessions = [];
     try {
-        const sessionsDir = path.join(__dirname, 'sessions');
-        if (!fs.existsSync(sessionsDir)) {
-            logger.info('No sessions directory found. Skipping auto-restore.');
-            return;
-        }
+        d1Sessions = await listRemoteSessions();
+        logger.info(`☁️ Found ${d1Sessions.length} session(s) in D1.`);
+    } catch (e) {
+        logger.error('Failed to fetch sessions from D1:', e.message);
+    }
 
+    const seenKeys = new Set();
+    
+    for (const row of d1Sessions) {
+        // row.id = "companyId:sessionId" format (as stored by bot server)
+        const parts = (row.id || '').split(':');
+        const companyId = row.company_id || parts[0];
+        const sessionId = parts.length > 1 ? parts.slice(1).join(':') : row.id;
+
+        if (!companyId || !sessionId) continue;
+        const combinedKey = `${companyId}:${sessionId}`;
+        if (seenKeys.has(combinedKey)) continue;
+        seenKeys.add(combinedKey);
+
+        logger.info(`♻️ [D1] Restoring session: [${combinedKey}]`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        startSession(companyId, sessionId).catch(err => {
+            logger.error(`Failed to restore ${combinedKey}: ${err.message}`);
+        });
+    }
+
+    // --- Fallback: Scan local disk (dev environment) ---
+    const sessionsDir = path.join(__dirname, 'sessions');
+    if (fs.existsSync(sessionsDir)) {
         const folders = fs.readdirSync(sessionsDir);
-        logger.info(`Found ${folders.length} folders in sessions directory.`);
-
+        logger.info(`💾 Disk fallback: Found ${folders.length} local session folder(s).`);
         for (const folder of folders) {
-            // Identifier format: companyId-sessionId (e.g., global-client1)
             const parts = folder.split('-');
             if (parts.length >= 2) {
                 const companyId = parts[0];
-                const sessionId = parts.slice(1).join('-'); // handles sessionIds with dashes
-                
-                logger.info(`♻️ Restoring session: [Company: ${companyId}, ID: ${sessionId}]`);
-                // Use a slight delay between starts to avoid overwhelming the system
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const sessionId = parts.slice(1).join('-');
+                const combinedKey = `${companyId}:${sessionId}`;
+                if (seenKeys.has(combinedKey)) continue; // already restored from D1
+                seenKeys.add(combinedKey);
+                logger.info(`♻️ [Disk] Restoring session: [${combinedKey}]`);
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 startSession(companyId, sessionId).catch(err => {
-                    logger.error(`Failed to restore ${companyId}:${sessionId}: ${err.message}`);
+                    logger.error(`Failed to restore disk ${combinedKey}: ${err.message}`);
                 });
             }
         }
-    } catch (e) {
-        logger.error('Failed to autostart sessions:', e.message);
     }
+
+    logger.info(`✅ Session restore complete. Total sessions attempted: ${seenKeys.size}`);
 }
 async function startServer() {
     logger.info('Starting Neriva Multi-Account WhatsApp Server...');
