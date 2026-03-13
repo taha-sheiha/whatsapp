@@ -6,17 +6,24 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
     try {
         const baileys = await import('@whiskeysockets/baileys');
         const makeWASocket = baileys.default || baileys.makeWASocket;
-        const { DisconnectReason, fetchLatestBaileysVersion } = baileys;
+        const { DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileys;
 
         const { state, saveCreds } = await getRemoteAuthState(companyId, sessionId);
-        const { version } = await fetchLatestBaileysVersion();
+        
+        let { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({ 
+            version: [2, 3000, 1015901307], 
+            isLatest: false 
+        }));
+        
+        logger.info(`[${sessionId}] Starting WhatsApp with version [${version.join('.')}] (Latest: ${isLatest})`);
 
         const sock = makeWASocket({
             version,
             auth: state,
             logger: logger.child({ module: 'baileys', level: 'silent' }),
-            browser: ['NeuraBot', 'Chrome', '1.0.0'],
-            printQRInTerminal: false
+            browser: Browsers.macOS('Desktop'),
+            printQRInTerminal: false,
+            markOnlineOnConnect: false
         });
 
         sock.ev.on('creds.update', saveCreds);

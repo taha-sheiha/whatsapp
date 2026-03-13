@@ -4,13 +4,13 @@ const logger = require('./logger');
 const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
 const BOT_SECRET = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
 
-async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
+async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetKeys = false) {
     const { proto, initAuthCreds, BufferJSON } = await import('@whiskeysockets/baileys');
 
     let remoteData = { creds: null, keys: {} };
 
     // Function to load from remote
-    const loadFromRemote = async () => {
+    const loadFromRemote = async (forceResetKeys = false) => {
         try {
             const res = await fetch(`${WORKER_SESSION_URL}?id=${sessionId}&companyId=${companyId}`, {
                 headers: { 'Authorization': `Bearer ${BOT_SECRET}` }
@@ -20,6 +20,12 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
                 if (text) {
                     const parsed = JSON.parse(text, BufferJSON.reviver);
                     remoteData = parsed.data || { creds: null, keys: {} };
+                    
+                    if (forceResetKeys) {
+                        logger.warn(`[${sessionId}] Force resetting session keys for conflict resolution...`);
+                        remoteData.keys = {};
+                    }
+
                     if (remoteData.creds) logger.info(`Remote session [${companyId}:${sessionId}] loaded successfully ☁️`);
                 }
             }
@@ -49,7 +55,7 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
         }
     };
 
-    await loadFromRemote();
+    await loadFromRemote(forceResetKeys);
 
     // Initialize creds if not present
     if (!remoteData.creds) {
