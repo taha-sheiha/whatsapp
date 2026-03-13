@@ -62,6 +62,14 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
         messageIdCache.set(msgId, true);
 
+        // --- DEBUG EXPERIMENT FOR @LID ---
+        if (sender.includes('@lid')) {
+            logger.info(`[LID_DEBUG] Raw MSG for ${sender}: ${JSON.stringify(msg, (k,v) => (k === 'message' && typeof v === 'object' ? Object.keys(v) : v)).substring(0, 300)}`);
+            logger.info(`[LID_DEBUG] MSG participant: ${msg.participant || msg.key?.participant || 'none'}`);
+        }
+        // ---------------------------------
+
+
         // STEP 3: Extract Text
         const text = extractText(msg);
         const msgTypes = Object.keys(msg.message || {}).join(', ');
