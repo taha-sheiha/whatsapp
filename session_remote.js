@@ -1,8 +1,7 @@
-const axios = require('axios');
 const logger = require('./logger');
 
 // Remote Session Config (via Cloudflare Worker)
-const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://neura-worker.tahasheiha.workers.dev/bot-session';
+const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || 'https://ai.tahasheiha.workers.dev/bot-session';
 const BOT_SECRET = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
 
 async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
@@ -13,14 +12,16 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
     // Function to load from remote
     const loadFromRemote = async () => {
         try {
-            const res = await axios.get(`${WORKER_SESSION_URL}?id=${sessionId}&companyId=${companyId}`, {
-                headers: { 'Authorization': `Bearer ${BOT_SECRET}` },
-                transformResponse: [data => data]
+            const res = await fetch(`${WORKER_SESSION_URL}?id=${sessionId}&companyId=${companyId}`, {
+                headers: { 'Authorization': `Bearer ${BOT_SECRET}` }
             });
-            if (res.data) {
-                const parsed = JSON.parse(res.data, BufferJSON.reviver);
-                remoteData = parsed.data || { creds: null, keys: {} };
-                if (remoteData.creds) logger.info(`Remote session [${companyId}:${sessionId}] loaded successfully ☁️`);
+            if (res.ok) {
+                const text = await res.text();
+                if (text) {
+                    const parsed = JSON.parse(text, BufferJSON.reviver);
+                    remoteData = parsed.data || { creds: null, keys: {} };
+                    if (remoteData.creds) logger.info(`Remote session [${companyId}:${sessionId}] loaded successfully ☁️`);
+                }
             }
         } catch (e) {
             logger.error(`Failed to load remote session [${sessionId}]:`, e.message);
@@ -31,12 +32,18 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
     const saveToRemote = async () => {
         try {
             const payload = JSON.stringify({ id: sessionId, companyId, data: remoteData }, BufferJSON.replacer);
-            await axios.post(WORKER_SESSION_URL, payload, {
+            const res = await fetch(WORKER_SESSION_URL, {
+                method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${BOT_SECRET}`
-                }
+                },
+                body: payload
             });
+            if (!res.ok) {
+                const errText = await res.text();
+                logger.error(`Failed to save to remote session [${sessionId}]: ${res.status} ${errText}`);
+            }
         } catch (e) {
             logger.error(`Failed to save to remote session [${sessionId}]:`, e.message);
         }
@@ -91,5 +98,3 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3') {
 }
 
 module.exports = { getRemoteAuthState };
-
-

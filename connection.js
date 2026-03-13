@@ -1,20 +1,14 @@
 const qrcodeLib = require('qrcode');
 const logger = require('./logger');
-const fs = require('fs');
-const path = require('path');
+const { getRemoteAuthState } = require('./session_remote');
 
 async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'neura-v3') {
     try {
         const baileys = await import('@whiskeysockets/baileys');
         const makeWASocket = baileys.default || baileys.makeWASocket;
-        const { DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState } = baileys;
+        const { DisconnectReason, fetchLatestBaileysVersion } = baileys;
 
-        const sessionDir = path.join(__dirname, 'sessions', `${companyId}-${sessionId}`);
-        if (!fs.existsSync(sessionDir)) {
-            fs.mkdirSync(sessionDir, { recursive: true });
-        }
-
-        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+        const { state, saveCreds } = await getRemoteAuthState(companyId, sessionId);
         const { version } = await fetchLatestBaileysVersion();
 
         const sock = makeWASocket({
