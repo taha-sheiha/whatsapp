@@ -2,6 +2,7 @@ const express = require('express');
 const { connectToWhatsApp } = require('./connection');
 const { handleIncomingMessage } = require('./listener');
 const logger = require('./logger');
+const { sendMessage } = require('./sender');
 const { listRemoteSessions } = require('./session_remote');
 const fs = require('fs');
 const path = require('path');
@@ -187,8 +188,20 @@ async function startServer() {
         }
 
         try {
-            const remoteJid = targetId.includes('@s.whatsapp.net') ? targetId : `${targetId}@s.whatsapp.net`;
+            const rawPhone = targetId.split('@')[0];
+            let remoteJid = targetId.includes('@') ? targetId : `${rawPhone}@s.whatsapp.net`;
             
+            // Try to resolve the "real" JID (handles @lid mapping)
+            try {
+                const [result] = await sess.sock.onWhatsApp(rawPhone);
+                if (result && result.exists) {
+                    remoteJid = result.jid;
+                    logger.info(`[WhatsApp Send] Resolved JID for ${rawPhone}: ${remoteJid}`);
+                }
+            } catch (onWaErr) {
+                logger.warn(`[WhatsApp Send] onWhatsApp resolution failed for ${rawPhone}, using default: ${onWaErr.message}`);
+            }
+
             // Parse media tags
             let mediaUrl = null;
             let mediaType = 'text';
@@ -201,28 +214,13 @@ async function startServer() {
                 cleanText = text.replace(/\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/gi, '').trim();
             }
 
-            if (mediaUrl) {
-                let msgPayload = {};
-                if (mediaType === 'image') {
-                    msgPayload = { image: { url: mediaUrl } };
-                    if (cleanText) msgPayload.caption = cleanText;
-                } else if (mediaType === 'video') {
-                    msgPayload = { video: { url: mediaUrl } };
-                    if (cleanText) msgPayload.caption = cleanText;
-                } else {
-                    msgPayload = { document: { url: mediaUrl }, fileName: 'Document' };
-                    if (cleanText) msgPayload.caption = cleanText;
-                }
-                
-                await sess.sock.sendMessage(remoteJid, msgPayload);
-            } else {
-                await sess.sock.sendMessage(remoteJid, { text: cleanText });
-            }
+            // Use the shared sender logic and queue
+            await sendMessage(sess.sock, remoteJid, text);
             
-            res.json({ success: true });
+            res.json({ success: true, resolvedJid: remoteJid });
         } catch (e) {
             logger.error(`[WhatsApp Send] Failed to send manual message:`, e);
-            res.status(500).json({ error: e.message || 'Failed to send WhatsApp message' });
+            res.status(500).json({ error: e.message || 'Failed to send' });
         }
     });
 
