@@ -88,17 +88,24 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
         rateLimitCache.set(sender, userRate + 1);
 
+        // Extract real phone number if it's an @lid account
+        let realPhone = sender.split('@')[0];
+        if (sender.includes('@lid') && msg.key?.senderPn) {
+            realPhone = msg.key.senderPn.split('@')[0];
+            logger.info(`[LID_RESOLVE] Resolved @lid ${sender} to real phone: ${realPhone}`);
+        }
+
         const pushName = msg.pushName || "";
-        const phone = sender.split('@')[0];
-        const userName = pushName ? `${pushName} (${phone})` : phone;
+        const userName = pushName ? `${pushName} (${realPhone})` : realPhone;
 
         logger.info(`[PROCESS] Sending to AI | From: ${userName} | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
 
         // STEP 5: Call AI API
         const targetUrl = customApiUrl || AI_API_URL;
-        const chatId = `wa-${phone}`;
+        const chatId = `wa-${realPhone}`;
 
         // Store the real JID (could be @lid) so manual replies use the correct address
+        // Crucial: we map the wa-REALPHONE to the @lid sender!
         try { getJidMap().set(chatId, sender); } catch(e) { /* non-critical */ }
 
         // Get conversation history for this sender
