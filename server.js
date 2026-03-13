@@ -59,11 +59,32 @@ async function startSession(companyId, sessionId) {
 
 
 async function startAllSessions() {
-    logger.info('Fetching known sessions from remote storage...');
+    logger.info('🔍 Scanning for existing WhatsApp sessions to restore...');
     try {
-        // Since we don't have a direct list of "all companies" easily, 
-        // we'll rely on the dashboard to trigger start for each account.
-        // OR we can add a /api/whatsapp/sessions-to-restore endpoint in worker.
+        const sessionsDir = path.join(__dirname, 'sessions');
+        if (!fs.existsSync(sessionsDir)) {
+            logger.info('No sessions directory found. Skipping auto-restore.');
+            return;
+        }
+
+        const folders = fs.readdirSync(sessionsDir);
+        logger.info(`Found ${folders.length} folders in sessions directory.`);
+
+        for (const folder of folders) {
+            // Identifier format: companyId-sessionId (e.g., global-client1)
+            const parts = folder.split('-');
+            if (parts.length >= 2) {
+                const companyId = parts[0];
+                const sessionId = parts.slice(1).join('-'); // handles sessionIds with dashes
+                
+                logger.info(`♻️ Restoring session: [Company: ${companyId}, ID: ${sessionId}]`);
+                // Use a slight delay between starts to avoid overwhelming the system
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                startSession(companyId, sessionId).catch(err => {
+                    logger.error(`Failed to restore ${companyId}:${sessionId}: ${err.message}`);
+                });
+            }
+        }
     } catch (e) {
         logger.error('Failed to autostart sessions:', e.message);
     }

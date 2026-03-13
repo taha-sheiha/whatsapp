@@ -44,14 +44,20 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const reason = lastDisconnect?.error?.message || 'Unknown reason';
                 const isLoggedOut = (statusCode === DisconnectReason.loggedOut || statusCode === 401);
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-                logger.error(`[${sessionId}] Connection closed. Status: ${statusCode}`);
-                if (onUpdate) onUpdate({ type: 'status', data: 'disconnected', session: sessionId });
+                logger.error(`[${sessionId}] Connection closed. Status: ${statusCode}, Reason: ${reason}`);
+                if (onUpdate) onUpdate({ type: 'status', data: isLoggedOut ? 'disconnected' : 'reconnecting', session: sessionId });
 
-                const delay = isLoggedOut ? 15000 : 5000;
-                logger.info(`[${sessionId}] Reconnecting in ${delay / 1000}s...`);
-                setTimeout(() => connectToWhatsApp(onMessage, onUpdate, companyId, sessionId), delay);
+                if (shouldReconnect) {
+                    const delay = statusCode === DisconnectReason.restartRequired ? 1000 : 5000;
+                    logger.info(`[${sessionId}] Reconnecting automatically in ${delay / 1000}s...`);
+                    setTimeout(() => connectToWhatsApp(onMessage, onUpdate, companyId, sessionId), delay);
+                } else {
+                    logger.warn(`[${sessionId}] Session logged out. Manual intervention required.`);
+                }
 
             } else if (connection === 'open') {
                 logger.info(`[${sessionId}] Connection established ✅`);
@@ -60,7 +66,6 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
         });
 
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
-            logger.info(`[UPSERT] Received ${messages.length} messages. Type: ${type}`);
             if (type !== 'notify' && type !== 'append') return;
             for (const msg of messages) {
                 onMessage(sock, msg, sessionId).catch(err => {
