@@ -31,7 +31,9 @@ async function startSession(companyId, sessionId) {
             (sock, msg, sid) => handleIncomingMessage(sock, msg, companyId, null, sid),
             (update) => {
                 const sess = sessions.get(combinedKey) || {};
-                if (update.type === 'qr') {
+                if (update.type === 'sock') {
+                    sess.sock = update.data;
+                } else if (update.type === 'qr') {
                     sess.qr = update.data;
                     sess.status = 'disconnected';
                     sess.pairingCode = null;
@@ -175,8 +177,13 @@ async function startServer() {
         const combinedKey = `${companyId}:${session}`;
         const sess = sessions.get(combinedKey);
         if (!sess || !sess.sock) {
-            logger.warn(`[WhatsApp Send] Session not found or not connected for key: ${combinedKey}`);
+            logger.warn(`[WhatsApp Send] Session not found/started for key: ${combinedKey}`);
             return res.status(404).json({ error: 'WhatsApp session not found or not connected' });
+        }
+
+        if (sess.status !== 'connected' && sess.status !== 'open') {
+            logger.warn(`[WhatsApp Send] Session ${combinedKey} is not connected (Status: ${sess.status})`);
+            return res.status(400).json({ error: `Connection is ${sess.status || 'disconnected'}. Please wait or re-scan QR.` });
         }
 
         try {
