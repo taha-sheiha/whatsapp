@@ -165,14 +165,17 @@ async function startServer() {
 
     // POST /api/whatsapp/send — send a manual message or media via WhatsApp
     app.post('/api/whatsapp/send', async (req, res) => {
+        logger.info(`[WhatsApp Send] Incoming request:`, req.body);
         const { session, companyId, targetId, text } = req.body;
         if (!session || !companyId || !targetId || !text) {
+            logger.warn(`[WhatsApp Send] Missing fields. Has: session=${session}, companyId=${companyId}, targetId=${targetId}, text length=${text?.length}`);
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
         const combinedKey = `${companyId}:${session}`;
         const sess = sessions.get(combinedKey);
         if (!sess || !sess.sock) {
+            logger.warn(`[WhatsApp Send] Session not found or not connected for key: ${combinedKey}`);
             return res.status(404).json({ error: 'WhatsApp session not found or not connected' });
         }
 
