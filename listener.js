@@ -55,7 +55,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
             return;
         }
 
-        if (sender === 'status@broadcast' || sender.includes('@broadcast')) {
+        if (sender === 'status@broadcast' || sender.includes('@broadcast') || sender === 'status' || sender.startsWith('status@')) {
             logger.debug(`[SKIP] Ignored WhatsApp Status broadcast. ID: ${msgId}`);
             return;
         }
