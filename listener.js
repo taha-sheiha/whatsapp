@@ -55,6 +55,11 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
             return;
         }
 
+        if (sender === 'status@broadcast' || sender.includes('@broadcast')) {
+            logger.debug(`[SKIP] Ignored WhatsApp Status broadcast. ID: ${msgId}`);
+            return;
+        }
+
         // STEP 2: Deduplication by Message ID
         if (messageIdCache.has(msgId)) {
             logger.warn(`[DEDUP] Already processed ID: ${msgId}. Skipping.`);
