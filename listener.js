@@ -97,7 +97,8 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 } else {
                     audioBase64 = buffer.toString('base64');
                     isVoiceNote = !!audioMsg.ptt;
-                    text = text || "[رسالة صوتية مرفقة]";
+                    const voicePrompt = "العميل أرسل لك المقطع الصوتي المرفق. استمع إليه وأجب بناءً عليه واعلم أنك الآن تستطيع معالجة الصوت بفضل تحديث النظام، فلا تعتذر وتقول أنك لا تسمع.";
+                    text = text ? text + "\n" + voicePrompt : voicePrompt;
                     logger.info(`[Audio_DL] Audio ready: ${buffer.length} bytes, ptt=${isVoiceNote}`);
                 }
             } catch (err) {
