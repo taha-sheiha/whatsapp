@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('./logger');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { sendMessage } = require('./sender');
 const NodeCache = require('node-cache');
 // Lazy-require to avoid circular dependency — jidMap is populated by server.js
@@ -76,9 +77,26 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
 
 
         // STEP 3: Extract Text
-        const text = extractText(msg);
+        let text = extractText(msg);
         const msgTypes = Object.keys(msg.message || {}).join(', ');
         logger.info(`[RECV] From: ${sender} | ID: ${msgId} | Types: ${msgTypes}`);
+
+        // Extract Audio if present
+        let audioBase64 = null;
+        let isVoiceNote = false;
+        const audioMsg = msg.message?.audioMessage || msg.message?.ephemeralMessage?.message?.audioMessage;
+        if (audioMsg) {
+            try {
+                logger.info(`[Audio_DL] Downloading audio message from ${sender}...`);
+                const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+                audioBase64 = buffer.toString('base64');
+                isVoiceNote = !!audioMsg.ptt; // ptt = push to talk (voice note)
+                text = text || "[رسالة صوتية مرفقة]";
+            } catch (err) {
+                logger.error(`[Audio_ERR] Failed to download audio: ${err.message}`);
+                text = text || "[عطل في قراءة الرسالة الصوتية]";
+            }
+        }
 
         if (!text || text.trim() === '') {
             logger.warn(`[SKIP] Empty text after extraction. Types: ${msgTypes}. ID: ${msgId}`);
@@ -126,6 +144,8 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 userName,
                 platform: 'whatsapp',
                 accountName: sessionId || "WhatsApp",
+                audioInput: audioBase64,
+                isVoiceNote: isVoiceNote,
                 history: history.slice(-20) // Send last 20 messages (10 exchanges)
             }, { 
                 headers: { 'Authorization': `Bearer ${process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024'}` },
@@ -170,7 +190,9 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
 
         logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
-        await sendMessage(sock, replyTarget, aiReply, participantTag);
+        const voiceOutBase64 = response.data?.audioOut;
+        if (voiceOutBase64) logger.info(`[REPLY_VOICE] Attached AI Voice Note payload found.`);
+        await sendMessage(sock, replyTarget, aiReply, participantTag, voiceOutBase64);
         logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
 
     } catch (error) {

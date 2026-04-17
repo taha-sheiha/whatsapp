@@ -1,22 +1,75 @@
 const axios = require('axios');
 const logger = require('./logger');
+const { Readable } = require('stream');
+const { execSync, spawn } = require('child_process');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
+
+// ffmpeg binary path (ffmpeg-static bundles a binary for the current OS)
+let ffmpegPath = null;
+try {
+    ffmpegPath = require('ffmpeg-static');
+    logger.info(`[Sender] ffmpeg-static loaded: ${ffmpegPath}`);
+} catch (e) {
+    logger.warn(`[Sender] ffmpeg-static not found. Voice notes will be sent as raw buffers.`);
+}
 
 const messageQueue = [];
 let isProcessing = false;
 
-async function sendMessage(sock, jid, text, participant = null) {
+/**
+ * Convert any audio buffer to OGG/Opus (WhatsApp PTT format) using ffmpeg-static.
+ * Returns the converted buffer, or original buffer if ffmpeg fails.
+ */
+async function toOggOpus(inputBuffer) {
+    if (!ffmpegPath) return inputBuffer;
+    return new Promise((resolve) => {
+        const tmpIn = path.join(os.tmpdir(), `neriva_in_${Date.now()}.tmp`);
+        const tmpOut = path.join(os.tmpdir(), `neriva_out_${Date.now()}.ogg`);
+        try {
+            fs.writeFileSync(tmpIn, inputBuffer);
+            execSync(`"${ffmpegPath}" -y -i "${tmpIn}" -c:a libopus -b:a 32k -ar 48000 -ac 1 "${tmpOut}"`, { stdio: 'pipe' });
+            const result = fs.readFileSync(tmpOut);
+            resolve(result);
+        } catch (e) {
+            logger.warn(`[Sender_FFMPEG] Conversion failed, using raw buffer: ${e.message}`);
+            resolve(inputBuffer);
+        } finally {
+            try { fs.unlinkSync(tmpIn); } catch (_) {}
+            try { fs.unlinkSync(tmpOut); } catch (_) {}
+        }
+    });
+}
+
+async function sendMessage(sock, jid, text, participant = null, voiceBase64 = null) {
     if (!text || text.trim() === '') return;
 
     logger.debug(`[Sender_DEBUG] full text input: "${text}"`);
 
+    // ── Voice Note Handling ─────────────────────────────
+    if (voiceBase64) {
+        try {
+            logger.info(`[Sender_VOICE] Preparing AI voice note for ${jid}...`);
+            const rawBuffer = Buffer.from(voiceBase64, 'base64');
+            const oggBuffer = await toOggOpus(rawBuffer);
+            messageQueue.push({
+                sock, jid,
+                payload: { audio: oggBuffer, ptt: true, mimetype: 'audio/ogg; codecs=opus' },
+                options: participant ? { participant } : undefined
+            });
+            logger.info(`[Sender_VOICE] Voice note queued (${oggBuffer.length} bytes).`);
+        } catch (err) {
+            logger.error(`[Sender_VOICE] Failed to prepare voice note: ${err.message}. Falling back to text.`);
+        }
+    }
+
+    // ── Text / Media Handling ────────────────────────────
     let mediaItems = [];
     const mediaRegex = /\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/gi;
     let match;
     while ((match = mediaRegex.exec(text)) !== null) {
-        mediaItems.push({
-            type: match[1].toLowerCase(),
-            url: match[2].trim()
-        });
+        mediaItems.push({ type: match[1].toLowerCase(), url: match[2].trim() });
     }
 
     let cleanText = text.replace(mediaRegex, '').trim();
@@ -44,7 +97,6 @@ async function sendMessage(sock, jid, text, participant = null) {
                 const mimetype = mimeMap[ext] || (type === 'image' ? 'image/jpeg' : (type === 'video' ? 'video/mp4' : 'application/octet-stream'));
 
                 const payload = {};
-                // Only attach the full text caption to the FIRST item to prevent duplicate captions
                 let caption = (i === 0 && cleanText) ? cleanText : undefined;
 
                 if (type === 'image') {
@@ -71,8 +123,11 @@ async function sendMessage(sock, jid, text, participant = null) {
             }
         }
     } else {
-        logger.debug(`[Sender_DEBUG] No media found, sending as text.`);
-        messageQueue.push({ sock, jid, payload: { text: cleanText }, options: participant ? { participant } : undefined });
+        // Only send a text message if voice is NOT being sent (avoid duplicate responses)
+        if (!voiceBase64) {
+            logger.debug(`[Sender_DEBUG] No media found, sending as text.`);
+            messageQueue.push({ sock, jid, payload: { text: cleanText }, options: participant ? { participant } : undefined });
+        }
     }
 
     if (!isProcessing) processQueue();
@@ -99,5 +154,3 @@ async function processQueue() {
 }
 
 module.exports = { sendMessage };
-
-
