@@ -29,7 +29,8 @@ async function toOggOpus(inputBuffer) {
         const tmpOut = path.join(os.tmpdir(), `neriva_out_${Date.now()}.ogg`);
         try {
             fs.writeFileSync(tmpIn, inputBuffer);
-            execSync(`"${ffmpegPath}" -y -i "${tmpIn}" -c:a libopus -b:a 32k -ar 48000 -ac 1 "${tmpOut}"`, { stdio: 'pipe' });
+            // Must specify format BEFORE -i since raw PCM has no headers for auto-detection
+            execSync(`"${ffmpegPath}" -y -f s16le -ar 24000 -ac 1 -i "${tmpIn}" -c:a libopus -b:a 32k -ar 48000 -ac 1 "${tmpOut}"`, { stdio: 'pipe' });
             const result = fs.readFileSync(tmpOut);
             resolve(result);
         } catch (e) {
