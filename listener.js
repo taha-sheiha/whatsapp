@@ -89,9 +89,17 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
             try {
                 logger.info(`[Audio_DL] Downloading audio message from ${sender}...`);
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
-                audioBase64 = buffer.toString('base64');
-                isVoiceNote = !!audioMsg.ptt; // ptt = push to talk (voice note)
-                text = text || "[رسالة صوتية مرفقة]";
+                // Cap at ~900KB (≈ about 30 seconds of OGG Opus) to avoid crashes
+                const MAX_AUDIO_BYTES = 900 * 1024;
+                if (buffer.length > MAX_AUDIO_BYTES) {
+                    logger.warn(`[Audio_SKIP] Audio too large (${buffer.length} bytes). Skipping audio upload, replying as text.`);
+                    text = text || "[رسالة صوتية طويلة جداً - تعذر معالجتها]";
+                } else {
+                    audioBase64 = buffer.toString('base64');
+                    isVoiceNote = !!audioMsg.ptt;
+                    text = text || "[رسالة صوتية مرفقة]";
+                    logger.info(`[Audio_DL] Audio ready: ${buffer.length} bytes, ptt=${isVoiceNote}`);
+                }
             } catch (err) {
                 logger.error(`[Audio_ERR] Failed to download audio: ${err.message}`);
                 text = text || "[عطل في قراءة الرسالة الصوتية]";
@@ -149,7 +157,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 history: history.slice(-20) // Send last 20 messages (10 exchanges)
             }, { 
                 headers: { 'Authorization': `Bearer ${process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024'}` },
-                timeout: 25000 
+                timeout: 90000  // 90s — audio processing via Gemini needs more time
             });
         } catch (apiError) {
             const status = apiError.response?.status;
