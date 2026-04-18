@@ -97,9 +97,13 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 } else {
                     audioBase64 = buffer.toString('base64');
                     isVoiceNote = !!audioMsg.ptt;
+                    // WhatsApp voice notes are OGG/Opus, regular audio can be MP4
+                    const audioMimeType = isVoiceNote ? 'audio/ogg; codecs=opus' : (audioMsg.mimetype || 'audio/ogg');
                     const voicePrompt = "العميل أرسل لك المقطع الصوتي المرفق. استمع إليه وأجب بناءً عليه واعلم أنك الآن تستطيع معالجة الصوت بفضل تحديث النظام، فلا تعتذر وتقول أنك لا تسمع.";
                     text = text ? text + "\n" + voicePrompt : voicePrompt;
-                    logger.info(`[Audio_DL] Audio ready: ${buffer.length} bytes, ptt=${isVoiceNote}`);
+                    logger.info(`[Audio_DL] Audio ready: ${buffer.length} bytes, ptt=${isVoiceNote}, mime=${audioMimeType}`);
+                    // Store mime for API call
+                    msg._resolvedAudioMime = audioMimeType;
                 }
             } catch (err) {
                 logger.error(`[Audio_ERR] Failed to download audio: ${err.message}`);
@@ -154,6 +158,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 platform: 'whatsapp',
                 accountName: sessionId || "WhatsApp",
                 audioInput: audioBase64,
+                audioMimeType: msg._resolvedAudioMime || (isVoiceNote ? 'audio/ogg; codecs=opus' : undefined),
                 isVoiceNote: isVoiceNote,
                 history: history.slice(-20) // Send last 20 messages (10 exchanges)
             }, { 
