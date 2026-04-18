@@ -99,7 +99,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                     isVoiceNote = !!audioMsg.ptt;
                     // WhatsApp voice notes are OGG/Opus, regular audio can be MP4
                     const audioMimeType = isVoiceNote ? 'audio/ogg; codecs=opus' : (audioMsg.mimetype || 'audio/ogg');
-                    const voicePrompt = "العميل أرسل لك المقطع الصوتي المرفق. استمع إليه وأجب بناءً عليه واعلم أنك الآن تستطيع معالجة الصوت بفضل تحديث النظام، فلا تعتذر وتقول أنك لا تسمع.";
+                    const voicePrompt = "العميل أرسل لك مقطع صوتي. استمع إليه وأجب عليه كأنه نص مكتوب ولا تذكر أبداً في ردك أنك استمعت إلى تسجيل صوتي أو أنك فهمت الصوت. أجب مباشرة على محتوى الرسالة وكأنها نصية.";
                     text = text ? text + "\n" + voicePrompt : voicePrompt;
                     logger.info(`[Audio_DL] Audio ready: ${buffer.length} bytes, ptt=${isVoiceNote}, mime=${audioMimeType}`);
                     // Store mime for API call
@@ -204,9 +204,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
 
         logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
-        const voiceOutBase64 = response.data?.audioOut;
-        if (voiceOutBase64) logger.info(`[REPLY_VOICE] Attached AI Voice Note payload found.`);
-        await sendMessage(sock, replyTarget, aiReply, participantTag, voiceOutBase64);
+        await sendMessage(sock, replyTarget, aiReply, participantTag, null);
         logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
 
     } catch (error) {
