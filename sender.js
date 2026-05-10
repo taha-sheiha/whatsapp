@@ -50,13 +50,19 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
 
     logger.debug(`[Sender_DEBUG] full text input: "${text}"`);
 
-    // ── Voice Note Handling ─────────────────────────────
+    // ── Initialise per-JID queue (always first) ──────────────────────────────
+    if (!jidQueues.has(jid)) {
+        jidQueues.set(jid, { queue: [], processing: false });
+    }
+    const jidState = jidQueues.get(jid);
+
+    // ── Voice Note Handling ──────────────────────────────────────────────────
     if (voiceBase64) {
         try {
             logger.info(`[Sender_VOICE] Preparing AI voice note for ${jid}...`);
             const rawBuffer = Buffer.from(voiceBase64, 'base64');
             const oggBuffer = await toOggOpus(rawBuffer);
-            messageQueue.push({
+            jidState.queue.push({
                 sock, jid,
                 payload: { audio: oggBuffer, ptt: true, mimetype: 'audio/ogg; codecs=opus' },
                 options: participant ? { participant } : undefined
@@ -67,15 +73,14 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
         }
     }
 
-    // ── Text / Media Handling ────────────────────────────
-    let mediaItems = [];
+    // ── Text / Media Handling ────────────────────────────────────────────────
     const mediaRegex = /\[(IMAGE|VIDEO|FILE):\s*(https?:\/\/[^\]]+)\s*\]/gi;
+    const mediaItems = [];
     let match;
     while ((match = mediaRegex.exec(text)) !== null) {
         mediaItems.push({ type: match[1].toLowerCase(), url: match[2].trim() });
     }
-
-    let cleanText = text.replace(mediaRegex, '').trim();
+    const cleanText = text.replace(mediaRegex, '').trim();
 
     if (mediaItems.length > 0) {
         for (let i = 0; i < mediaItems.length; i++) {
@@ -91,16 +96,24 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
                 const ext = url.split('.').pop().toLowerCase().split('?')[0];
 
                 const mimeMap = {
-                    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp', 'gif': 'image/gif',
-                    'pdf': 'application/pdf', 'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+                    'webp': 'image/webp', 'gif': 'image/gif',
+                    'pdf': 'application/pdf',
+                    'doc': 'application/msword',
+                    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'xls': 'application/vnd.ms-excel',
+                    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     'mp4': 'video/mp4'
                 };
 
-                const mimetype = mimeMap[ext] || (type === 'image' ? 'image/jpeg' : (type === 'video' ? 'video/mp4' : 'application/octet-stream'));
+                const mimetype = mimeMap[ext] || (
+                    type === 'image' ? 'image/jpeg' :
+                    type === 'video' ? 'video/mp4' :
+                    'application/octet-stream'
+                );
 
                 const payload = {};
-                let caption = (i === 0 && cleanText) ? cleanText : undefined;
+                const caption = (i === 0 && cleanText) ? cleanText : undefined;
 
                 if (type === 'image') {
                     payload.image = buffer;
@@ -110,23 +123,27 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
                     payload.video = buffer;
                     if (caption) payload.caption = caption;
                     payload.mimetype = mimetype;
-                } else if (type === 'file') {
+                } else {
+                    // file / document
                     payload.document = buffer;
-                    payload.fileName = "Neriva_File." + ext;
+                    payload.fileName = `Neriva_File.${ext}`;
                     if (caption) payload.caption = caption;
                     payload.mimetype = mimetype;
                 }
 
                 logger.info(`[Sender_MEDIA] Buffer Ready: ${buffer.length} bytes | Type: ${mimetype}.`);
                 jidState.queue.push({ sock, jid, payload, options: participant ? { participant } : undefined });
+
             } catch (fetchErr) {
                 logger.error(`[Sender_ERR] Failed to fetch media from ${url}: ${fetchErr.message}`);
-                let fallbackCaption = (i === 0 && cleanText) ? cleanText + "\n\n(عذراً، فشل تحميل إحدى الوسائط المرفقة)" : "(عذراً، فشل تحميل إحدى الوسائط المرفقة)";
+                const fallbackCaption = (i === 0 && cleanText)
+                    ? `${cleanText}\n\n(عذراً، فشل تحميل إحدى الوسائط المرفقة)`
+                    : '(عذراً، فشل تحميل إحدى الوسائط المرفقة)';
                 jidState.queue.push({ sock, jid, payload: { text: fallbackCaption }, options: participant ? { participant } : undefined });
             }
         }
     } else {
-        // Only send a text message if voice is NOT being sent (avoid duplicate responses)
+        // Text-only — skip if we already sent a voice note (no duplicate)
         if (!voiceBase64) {
             logger.debug(`[Sender_DEBUG] No media found, sending as text.`);
             jidState.queue.push({ sock, jid, payload: { text: cleanText }, options: participant ? { participant } : undefined });
@@ -135,6 +152,10 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
 
     if (!jidState.processing) processJidQueue(jid);
 }
+
+// [ANTI-BAN FIX]: A global lock to ensure we never burst multiple socket messages
+// in the exact same millisecond, which triggers WhatsApp anti-spam bans.
+let globalSendLock = Promise.resolve();
 
 // Process queue for a specific JID — independent from all other JIDs
 async function processJidQueue(jid) {
@@ -145,9 +166,28 @@ async function processJidQueue(jid) {
     const { sock, payload, options } = jidState.queue.shift();
 
     try {
+        // --- ANTI-BAN THROTTLE START ---
+        // Wait for our turn globally so we don't send 10 messages at the exact same ms
+        await globalSendLock;
+        
+        let releaseLock;
+        globalSendLock = new Promise(resolve => { releaseLock = resolve; });
+
+        // Simulate human behavior: send "typing..." indicator
+        try { await sock.sendPresenceUpdate('composing', jid); } catch (e) {}
+        
+        // Random human-like delay between 200ms and 400ms
+        const delay = Math.floor(Math.random() * 200) + 200;
+        await new Promise(r => setTimeout(r, delay));
+        // --- ANTI-BAN THROTTLE END ---
+
         logger.info(`[Sender] Sending to ${jid}${options?.participant ? ` (participant: ${options.participant})` : ''}...`);
         await sock.sendMessage(jid, payload, options);
         logger.info(`[Sender] ✅ Sent to ${jid}`);
+
+        // Release the global lock for the next concurrent message
+        releaseLock();
+
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
     } finally {
