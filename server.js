@@ -10,6 +10,11 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// [SECURITY CHECK]: BOT_SECRET must be set in environment, never rely on hardcoded fallback
+if (!process.env.BOT_SECRET) {
+    console.warn('[SECURITY WARNING] BOT_SECRET env variable is NOT set! Using insecure default. Set BOT_SECRET in your environment immediately.');
+}
+
 // Multi-account session registry: sessionId -> { sock, status, qr, pairingCode, pendingAction }
 const sessions = new Map(); // combinedKey (companyId:sessionId) -> { sock, status, qr, pairingCode, pendingAction }
 const pendingLogins = new Map();
@@ -241,7 +246,14 @@ async function startServer() {
             }
 
             // Use the shared sender logic and queue. Pass participant if lid.
-            await sendMessage(sess.sock, remoteJid, text, participantJid);
+            // [BUG FIX]: Pass cleanText not raw `text` — raw text may contain [IMAGE: url] tags
+            // that would be displayed as literal text to the customer
+            await sendMessage(sess.sock, remoteJid, cleanText || text, participantTag);
+            
+            // If there's a media attachment, send it separately after the text
+            if (mediaUrl && mediaType !== 'text') {
+                await sendMessage(sess.sock, remoteJid, `[${mediaType.toUpperCase()}: ${mediaUrl}]`, participantTag);
+            }
             
             res.json({ success: true, resolvedJid: remoteJid });
         } catch (e) {

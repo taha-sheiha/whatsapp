@@ -15,8 +15,10 @@ try {
     logger.warn(`[Sender] ffmpeg-static not found. Voice notes will be sent as raw buffers.`);
 }
 
-const messageQueue = [];
-let isProcessing = false;
+// [CONCURRENCY FIX]: Per-JID queue map instead of a single global queue.
+// Before: ALL messages for ALL customers shared one queue — customer #10 waited 4.5s for #1-9 to finish.
+// After: each JID gets its own independent queue — all customers are served in parallel.
+const jidQueues = new Map();   // jid → { queue: [], processing: bool }
 
 /**
  * Convert any audio buffer to OGG/Opus (WhatsApp PTT format) using ffmpeg-static.
@@ -116,29 +118,31 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
                 }
 
                 logger.info(`[Sender_MEDIA] Buffer Ready: ${buffer.length} bytes | Type: ${mimetype}.`);
-                messageQueue.push({ sock, jid, payload, options: participant ? { participant } : undefined });
+                jidState.queue.push({ sock, jid, payload, options: participant ? { participant } : undefined });
             } catch (fetchErr) {
                 logger.error(`[Sender_ERR] Failed to fetch media from ${url}: ${fetchErr.message}`);
                 let fallbackCaption = (i === 0 && cleanText) ? cleanText + "\n\n(عذراً، فشل تحميل إحدى الوسائط المرفقة)" : "(عذراً، فشل تحميل إحدى الوسائط المرفقة)";
-                messageQueue.push({ sock, jid, payload: { text: fallbackCaption }, options: participant ? { participant } : undefined });
+                jidState.queue.push({ sock, jid, payload: { text: fallbackCaption }, options: participant ? { participant } : undefined });
             }
         }
     } else {
         // Only send a text message if voice is NOT being sent (avoid duplicate responses)
         if (!voiceBase64) {
             logger.debug(`[Sender_DEBUG] No media found, sending as text.`);
-            messageQueue.push({ sock, jid, payload: { text: cleanText }, options: participant ? { participant } : undefined });
+            jidState.queue.push({ sock, jid, payload: { text: cleanText }, options: participant ? { participant } : undefined });
         }
     }
 
-    if (!isProcessing) processQueue();
+    if (!jidState.processing) processJidQueue(jid);
 }
 
-async function processQueue() {
-    if (isProcessing || messageQueue.length === 0) return;
-    isProcessing = true;
+// Process queue for a specific JID — independent from all other JIDs
+async function processJidQueue(jid) {
+    const jidState = jidQueues.get(jid);
+    if (!jidState || jidState.processing || jidState.queue.length === 0) return;
+    jidState.processing = true;
 
-    const { sock, jid, payload, options } = messageQueue.shift();
+    const { sock, payload, options } = jidState.queue.shift();
 
     try {
         logger.info(`[Sender] Sending to ${jid}${options?.participant ? ` (participant: ${options.participant})` : ''}...`);
@@ -147,9 +151,12 @@ async function processQueue() {
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
     } finally {
-        isProcessing = false;
-        if (messageQueue.length > 0) {
-            setTimeout(processQueue, 500);
+        jidState.processing = false;
+        if (jidState.queue.length > 0) {
+            setTimeout(() => processJidQueue(jid), 300); // 300ms between msgs to same person (anti-spam)
+        } else {
+            // Clean up empty queues to prevent memory accumulation
+            jidQueues.delete(jid);
         }
     }
 }

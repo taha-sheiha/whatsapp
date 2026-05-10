@@ -17,6 +17,9 @@ const rateLimitCache = new NodeCache({ stdTTL: 60 });
 const messageIdCache = new NodeCache({ stdTTL: 3600 });
 
 // Per-sender conversation history (in-memory, max 10 exchanges per user)
+// [MEMORY FIX]: Capped at 500 unique senders. Oldest entry is evicted when limit is reached
+// to prevent unbounded RAM growth on long-running processes.
+const MAX_HISTORY_SENDERS = 500;
 const conversationHistory = new Map();
 
 /**
@@ -145,11 +148,23 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         try { getJidMap().set(chatId, sender); } catch(e) { /* non-critical */ }
 
         // Get conversation history for this sender
-        if (!conversationHistory.has(sender)) conversationHistory.set(sender, []);
+        if (!conversationHistory.has(sender)) {
+            // Evict oldest entry if cap reached (prevents memory leak on long-running processes)
+            if (conversationHistory.size >= MAX_HISTORY_SENDERS) {
+                const oldestKey = conversationHistory.keys().next().value;
+                conversationHistory.delete(oldestKey);
+                logger.debug(`[HISTORY] Evicted oldest sender from history cache: ${oldestKey}`);
+            }
+            conversationHistory.set(sender, []);
+        }
         const history = conversationHistory.get(sender);
 
         let response;
         try {
+            const botSecret = process.env.BOT_SECRET;
+            if (!botSecret) {
+                logger.warn('[SECURITY] BOT_SECRET not set in environment — using insecure fallback!');
+            }
             response = await axios.post(targetUrl, {
                 question: text,
                 chatId,
