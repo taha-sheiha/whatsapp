@@ -248,11 +248,11 @@ async function startServer() {
             // Use the shared sender logic and queue. Pass participant if lid.
             // [BUG FIX]: Pass cleanText not raw `text` — raw text may contain [IMAGE: url] tags
             // that would be displayed as literal text to the customer
-            await sendMessage(sess.sock, remoteJid, cleanText || text, participantTag);
+            await sendMessage(sess.sock, remoteJid, cleanText || text, participantJid);
             
             // If there's a media attachment, send it separately after the text
             if (mediaUrl && mediaType !== 'text') {
-                await sendMessage(sess.sock, remoteJid, `[${mediaType.toUpperCase()}: ${mediaUrl}]`, participantTag);
+                await sendMessage(sess.sock, remoteJid, `[${mediaType.toUpperCase()}: ${mediaUrl}]`, participantJid);
             }
             
             res.json({ success: true, resolvedJid: remoteJid });
