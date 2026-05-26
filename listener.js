@@ -210,13 +210,13 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // Keep only last 20 entries (10 exchanges) to avoid memory bloat
         if (history.length > 20) history.splice(0, history.length - 20);
 
-        // Force sending AI reply back to the real phone number as a participant, bypassing @lid which drops messages
+        // Force sending AI reply back to the real phone number, bypassing @lid which drops messages
         let replyTarget = sender;
-        let participantTag = null;
-        if (sender.includes('@lid') && realPhone && realPhone !== sender.split('@')[0]) {
-            logger.info(`[REPLY] Detected @lid. Using original sender but adding participant: ${realPhone}@s.whatsapp.net`);
-            participantTag = `${realPhone}@s.whatsapp.net`;
+        if (sender.includes('@lid') && msg.key?.senderPn) {
+            replyTarget = msg.key.senderPn;
+            logger.info(`[REPLY] Detected @lid. Bypassing and sending directly to real phone JID: ${replyTarget}`);
         }
+        let participantTag = null;
 
         // Append AI signature with single newline (double newline causes WhatsApp @lid silent drops)
         const botName = response.data?.botName || 'نيورا دعم فني';
