@@ -210,6 +210,9 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // Keep only last 20 entries (10 exchanges) to avoid memory bloat
         if (history.length > 20) history.splice(0, history.length - 20);
 
+        // Append AI signature locally (safer than appending server-side to avoid @lid delivery issues)
+        const finalReply = aiReply.trim() + '\n- نيورا دعم فني';
+
         // Force sending AI reply back to the real phone number as a participant, bypassing @lid which drops messages
         let replyTarget = sender;
         let participantTag = null;
@@ -219,7 +222,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
 
         logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
-        await sendMessage(sock, replyTarget, aiReply, participantTag, null);
+        await sendMessage(sock, replyTarget, finalReply, participantTag, null);
         logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
 
     } catch (error) {
