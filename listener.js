@@ -219,7 +219,8 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         }
 
         // Append AI signature with single newline (double newline causes WhatsApp @lid silent drops)
-        const finalReply = aiReply + '\n- نيورا دعم فني';
+        const botName = response.data?.botName || 'نيورا دعم فني';
+        const finalReply = aiReply + `\n- ${botName}`;
 
         logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
         await sendMessage(sock, replyTarget, finalReply, participantTag, null);
