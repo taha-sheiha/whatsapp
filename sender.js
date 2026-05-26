@@ -165,12 +165,14 @@ async function processJidQueue(jid) {
 
     const { sock, payload, options } = jidState.queue.shift();
 
+    let releaseLock = null;
     try {
         // --- ANTI-BAN THROTTLE START ---
         // Wait for our turn globally so we don't send 10 messages at the exact same ms
         await globalSendLock;
         
-        let releaseLock;
+        // [BUG FIX]: releaseLock MUST be called in finally, not just on success.
+        // If sock.sendMessage throws, the lock was permanently held → all future sends deadlocked silently.
         globalSendLock = new Promise(resolve => { releaseLock = resolve; });
 
         // Simulate human behavior: send "typing..." indicator
@@ -185,12 +187,12 @@ async function processJidQueue(jid) {
         await sock.sendMessage(jid, payload, options);
         logger.info(`[Sender] ✅ Sent to ${jid}`);
 
-        // Release the global lock for the next concurrent message
-        releaseLock();
-
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
     } finally {
+        // Always release the global lock — even on failure — to prevent permanent deadlock
+        if (releaseLock) releaseLock();
+
         jidState.processing = false;
         if (jidState.queue.length > 0) {
             setTimeout(() => processJidQueue(jid), 300); // 300ms between msgs to same person (anti-spam)
