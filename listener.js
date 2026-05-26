@@ -210,9 +210,6 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // Keep only last 20 entries (10 exchanges) to avoid memory bloat
         if (history.length > 20) history.splice(0, history.length - 20);
 
-        // Append AI signature locally (safer than appending server-side to avoid @lid delivery issues)
-        const finalReply = aiReply.trim() + '\n- نيورا دعم فني';
-
         // Force sending AI reply back to the real phone number as a participant, bypassing @lid which drops messages
         let replyTarget = sender;
         let participantTag = null;
@@ -220,6 +217,9 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
             logger.info(`[REPLY] Detected @lid. Using original sender but adding participant: ${realPhone}@s.whatsapp.net`);
             participantTag = `${realPhone}@s.whatsapp.net`;
         }
+
+        // Append AI signature with single newline (double newline causes WhatsApp @lid silent drops)
+        const finalReply = aiReply + '\n- نيورا دعم فني';
 
         logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
         await sendMessage(sock, replyTarget, finalReply, participantTag, null);
