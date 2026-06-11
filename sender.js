@@ -1,7 +1,7 @@
 const axios = require('axios');
 const logger = require('./logger');
 const { Readable } = require('stream');
-const { execSync, spawn } = require('child_process');
+const { execSync, spawn, exec } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -31,16 +31,29 @@ async function toOggOpus(inputBuffer) {
         const tmpOut = path.join(os.tmpdir(), `neriva_out_${Date.now()}.ogg`);
         try {
             fs.writeFileSync(tmpIn, inputBuffer);
-            // Must specify format BEFORE -i since raw PCM has no headers for auto-detection
-            execSync(`"${ffmpegPath}" -y -f s16le -ar 24000 -ac 1 -i "${tmpIn}" -c:a libopus -b:a 32k -ar 48000 -ac 1 "${tmpOut}"`, { stdio: 'pipe' });
-            const result = fs.readFileSync(tmpOut);
-            resolve(result);
+            // Non-blocking conversion using exec
+            exec(`"${ffmpegPath}" -y -f s16le -ar 24000 -ac 1 -i "${tmpIn}" -c:a libopus -b:a 32k -ar 48000 -ac 1 "${tmpOut}"`, (error) => {
+                if (error) {
+                    logger.warn(`[Sender_FFMPEG] Conversion failed, using raw buffer: ${error.message}`);
+                    resolve(inputBuffer);
+                } else {
+                    try {
+                        const result = fs.readFileSync(tmpOut);
+                        resolve(result);
+                    } catch (readErr) {
+                        logger.error(`[Sender_FFMPEG] Failed to read converted audio: ${readErr.message}`);
+                        resolve(inputBuffer);
+                    }
+                }
+                // Cleanup files inside the callback
+                try { fs.unlinkSync(tmpIn); } catch (_) {}
+                try { fs.unlinkSync(tmpOut); } catch (_) {}
+            });
         } catch (e) {
-            logger.warn(`[Sender_FFMPEG] Conversion failed, using raw buffer: ${e.message}`);
-            resolve(inputBuffer);
-        } finally {
+            logger.warn(`[Sender_FFMPEG] File setup failed, using raw buffer: ${e.message}`);
             try { fs.unlinkSync(tmpIn); } catch (_) {}
             try { fs.unlinkSync(tmpOut); } catch (_) {}
+            resolve(inputBuffer);
         }
     });
 }
@@ -153,9 +166,9 @@ async function sendMessage(sock, jid, text, participant = null, voiceBase64 = nu
     if (!jidState.processing) processJidQueue(jid);
 }
 
-// [ANTI-BAN FIX]: A global lock to ensure we never burst multiple socket messages
-// in the exact same millisecond, which triggers WhatsApp anti-spam bans.
-let globalSendLock = Promise.resolve();
+// [ANTI-BAN FIX]: A session-scoped lock map to ensure we never burst multiple socket messages
+// in the exact same millisecond per account, while allowing different companies to send in parallel.
+const sessionSendLocks = new Map(); // "companyId:sessionId" -> Promise
 
 // Process queue for a specific JID — independent from all other JIDs
 async function processJidQueue(jid) {
@@ -165,15 +178,19 @@ async function processJidQueue(jid) {
 
     const { sock, payload, options } = jidState.queue.shift();
 
+    const sessionKey = `${sock.companyId || 'global'}:${sock.sessionId || 'default'}`;
+    if (!sessionSendLocks.has(sessionKey)) {
+        sessionSendLocks.set(sessionKey, Promise.resolve());
+    }
+    const currentSessionLock = sessionSendLocks.get(sessionKey);
+
     let releaseLock = null;
     try {
         // --- ANTI-BAN THROTTLE START ---
-        // Wait for our turn globally so we don't send 10 messages at the exact same ms
-        await globalSendLock;
+        // Wait for our turn for this specific session so we don't spam WhatsApp anti-spam bans
+        await currentSessionLock;
         
-        // [BUG FIX]: releaseLock MUST be called in finally, not just on success.
-        // If sock.sendMessage throws, the lock was permanently held → all future sends deadlocked silently.
-        globalSendLock = new Promise(resolve => { releaseLock = resolve; });
+        sessionSendLocks.set(sessionKey, new Promise(resolve => { releaseLock = resolve; }));
 
         // Simulate human behavior: send "typing..." indicator
         try { await sock.sendPresenceUpdate('composing', jid); } catch (e) {}
@@ -190,7 +207,7 @@ async function processJidQueue(jid) {
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);
     } finally {
-        // Always release the global lock — even on failure — to prevent permanent deadlock
+        // Always release the session lock — even on failure — to prevent permanent deadlock
         if (releaseLock) releaseLock();
 
         jidState.processing = false;

@@ -35,6 +35,8 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
         }
     };
 
+    let saveTimeout = null;
+
     // Function to save to remote
     const saveToRemote = async () => {
         try {
@@ -50,10 +52,20 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
             if (!res.ok) {
                 const errText = await res.text();
                 logger.error(`Failed to save to remote session [${sessionId}]: ${res.status} ${errText}`);
+            } else {
+                logger.info(`[${sessionId}] Remote session state saved successfully ☁️`);
             }
         } catch (e) {
             logger.error(`Failed to save to remote session [${sessionId}]:`, e.message);
         }
+    };
+
+    const saveToRemoteDebounced = () => {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+            await saveToRemote();
+            saveTimeout = null;
+        }, 1500); // 1.5s debounce delay
     };
 
     await loadFromRemote(forceResetKeys);
@@ -93,13 +105,12 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
                             }
                         }
                     }
-                    await saveToRemote();
+                    saveToRemoteDebounced();
                 }
             }
         },
         saveCreds: async () => {
-            await saveToRemote();
-            logger.info('Remote creds updated ✅');
+            saveToRemoteDebounced();
         }
     };
 }

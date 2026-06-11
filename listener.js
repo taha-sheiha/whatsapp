@@ -16,11 +16,7 @@ const AI_API_URL = process.env.AI_API_URL || 'https://neura-worker.tahasheiha.wo
 const rateLimitCache = new NodeCache({ stdTTL: 60 });
 const messageIdCache = new NodeCache({ stdTTL: 3600 });
 
-// Per-sender conversation history (in-memory, max 10 exchanges per user)
-// [MEMORY FIX]: Capped at 500 unique senders. Oldest entry is evicted when limit is reached
-// to prevent unbounded RAM growth on long-running processes.
-const MAX_HISTORY_SENDERS = 500;
-const conversationHistory = new Map();
+
 
 /**
  * Recursively extracts text from complex Baileys message objects
@@ -84,33 +80,101 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         const msgTypes = Object.keys(msg.message || {}).join(', ');
         logger.info(`[RECV] From: ${sender} | ID: ${msgId} | Types: ${msgTypes}`);
 
-        // Extract Audio if present
+        // Extract Media if present
         let audioBase64 = null;
         let isVoiceNote = false;
+        let audioMimeType = null;
+        
+        let imageBase64 = null;
+        let imageMimeType = null;
+        
+        let videoBase64 = null;
+        let videoMimeType = null;
+        
+        let fileBase64 = null;
+        let fileMimeType = null;
+        let fileName = null;
+
         const audioMsg = msg.message?.audioMessage || msg.message?.ephemeralMessage?.message?.audioMessage;
+        const imageMsg = msg.message?.imageMessage || msg.message?.ephemeralMessage?.message?.imageMessage || msg.message?.viewOnceMessage?.message?.imageMessage || msg.message?.viewOnceMessageV2?.message?.imageMessage;
+        const videoMsg = msg.message?.videoMessage || msg.message?.ephemeralMessage?.message?.videoMessage || msg.message?.viewOnceMessage?.message?.videoMessage || msg.message?.viewOnceMessageV2?.message?.videoMessage;
+        const documentMsg = msg.message?.documentMessage || msg.message?.ephemeralMessage?.message?.documentMessage;
+
         if (audioMsg) {
             try {
                 logger.info(`[Audio_DL] Downloading audio message from ${sender}...`);
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
-                // Cap at ~900KB (≈ about 30 seconds of OGG Opus) to avoid crashes
-                const MAX_AUDIO_BYTES = 900 * 1024;
+                const MAX_AUDIO_BYTES = 2 * 1024 * 1024; // 2MB
                 if (buffer.length > MAX_AUDIO_BYTES) {
                     logger.warn(`[Audio_SKIP] Audio too large (${buffer.length} bytes). Skipping audio upload, replying as text.`);
                     text = text || "[رسالة صوتية طويلة جداً - تعذر معالجتها]";
                 } else {
                     audioBase64 = buffer.toString('base64');
                     isVoiceNote = !!audioMsg.ptt;
-                    // WhatsApp voice notes are OGG/Opus, regular audio can be MP4
-                    const audioMimeType = isVoiceNote ? 'audio/ogg; codecs=opus' : (audioMsg.mimetype || 'audio/ogg');
+                    audioMimeType = isVoiceNote ? 'audio/ogg; codecs=opus' : (audioMsg.mimetype || 'audio/ogg');
                     const voicePrompt = "العميل أرسل لك مقطع صوتي. استمع إليه وأجب عليه كأنه نص مكتوب ولا تذكر أبداً في ردك أنك استمعت إلى تسجيل صوتي أو أنك فهمت الصوت. أجب مباشرة على محتوى الرسالة وكأنها نصية.";
                     text = text ? text + "\n" + voicePrompt : voicePrompt;
                     logger.info(`[Audio_DL] Audio ready: ${buffer.length} bytes, ptt=${isVoiceNote}, mime=${audioMimeType}`);
-                    // Store mime for API call
-                    msg._resolvedAudioMime = audioMimeType;
                 }
             } catch (err) {
                 logger.error(`[Audio_ERR] Failed to download audio: ${err.message}`);
                 text = text || "[عطل في قراءة الرسالة الصوتية]";
+            }
+        } else if (imageMsg) {
+            try {
+                logger.info(`[Image_DL] Downloading image from ${sender}...`);
+                const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+                const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+                if (buffer.length > MAX_IMAGE_BYTES) {
+                    logger.warn(`[Image_SKIP] Image too large (${buffer.length} bytes). Skipping image upload.`);
+                    text = text || "[صورة كبيرة جداً - تعذر معالجتها]";
+                } else {
+                    imageBase64 = buffer.toString('base64');
+                    imageMimeType = imageMsg.mimetype || 'image/jpeg';
+                    const imagePrompt = "العميل أرسل لك صورة. قم بتحليل الصورة بدقة عالية وأجب على استفسار العميل بناءً على ما يظهر فيها.";
+                    text = text ? text + "\n" + imagePrompt : imagePrompt;
+                    logger.info(`[Image_DL] Image ready: ${buffer.length} bytes, mime=${imageMimeType}`);
+                }
+            } catch (err) {
+                logger.error(`[Image_ERR] Failed to download image: ${err.message}`);
+                text = text || "[عطل في قراءة الصورة]";
+            }
+        } else if (videoMsg) {
+            try {
+                logger.info(`[Video_DL] Downloading video from ${sender}...`);
+                const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+                const MAX_VIDEO_BYTES = 15 * 1024 * 1024; // 15MB
+                if (buffer.length > MAX_VIDEO_BYTES) {
+                    logger.warn(`[Video_SKIP] Video too large (${buffer.length} bytes). Skipping video upload.`);
+                    text = text || "[فيديو كبير جداً - تعذر معالجته]";
+                } else {
+                    videoBase64 = buffer.toString('base64');
+                    videoMimeType = videoMsg.mimetype || 'video/mp4';
+                    logger.info(`[Video_DL] Video ready: ${buffer.length} bytes, mime=${videoMimeType}`);
+                    text = text || "[فيديو مرفق]";
+                }
+            } catch (err) {
+                logger.error(`[Video_ERR] Failed to download video: ${err.message}`);
+                text = text || "[عطل في قراءة الفيديو]";
+            }
+        } else if (documentMsg) {
+            try {
+                logger.info(`[Document_DL] Downloading document from ${sender}...`);
+                const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger });
+                const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
+                if (buffer.length > MAX_FILE_BYTES) {
+                    logger.warn(`[Document_SKIP] Document too large (${buffer.length} bytes). Skipping file upload.`);
+                    text = text || "[ملف كبير جداً - تعذر معالجته]";
+                } else {
+                    fileBase64 = buffer.toString('base64');
+                    fileMimeType = documentMsg.mimetype || 'application/octet-stream';
+                    fileName = documentMsg.fileName || 'document';
+                    logger.info(`[Document_DL] Document ready: ${buffer.length} bytes, mime=${fileMimeType}, name=${fileName}`);
+                    text = text || `[ملف مرفق: ${fileName}]`;
+                }
+            } catch (err) {
+                logger.error(`[Document_ERR] Failed to download document: ${err.message}`);
+                text = text || "[عطل في قراءة الملف]";
             }
         }
 
@@ -147,17 +211,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         // Crucial: we map the wa-REALPHONE to the @lid sender!
         try { getJidMap().set(chatId, sender); } catch(e) { /* non-critical */ }
 
-        // Get conversation history for this sender
-        if (!conversationHistory.has(sender)) {
-            // Evict oldest entry if cap reached (prevents memory leak on long-running processes)
-            if (conversationHistory.size >= MAX_HISTORY_SENDERS) {
-                const oldestKey = conversationHistory.keys().next().value;
-                conversationHistory.delete(oldestKey);
-                logger.debug(`[HISTORY] Evicted oldest sender from history cache: ${oldestKey}`);
-            }
-            conversationHistory.set(sender, []);
-        }
-        const history = conversationHistory.get(sender);
+
 
         let response;
         try {
@@ -173,12 +227,19 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 platform: 'whatsapp',
                 accountName: sessionId || "WhatsApp",
                 audioInput: audioBase64,
-                audioMimeType: msg._resolvedAudioMime || (isVoiceNote ? 'audio/ogg; codecs=opus' : undefined),
+                audioMimeType: audioMimeType || undefined,
                 isVoiceNote: isVoiceNote,
-                history: history.slice(-20) // Send last 20 messages (10 exchanges)
+                imageInput: imageBase64,
+                imageMimeType: imageMimeType || undefined,
+                videoInput: videoBase64,
+                videoMimeType: videoMimeType || undefined,
+                fileInput: fileBase64,
+                fileMimeType: fileMimeType || undefined,
+                fileName: fileName || undefined,
+                history: [] // Worker fetches full history directly from D1 database (getChatHistory)
             }, { 
                 headers: { 'Authorization': `Bearer ${process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024'}` },
-                timeout: 90000  // 90s — audio processing via Gemini needs more time
+                timeout: 90000  // 90s — media processing via Gemini needs more time
             });
         } catch (apiError) {
             const status = apiError.response?.status;
@@ -204,11 +265,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
             return;
         }
 
-        // STEP 7: Update History & Send Reply
-        history.push({ role: 'user', content: text });
-        history.push({ role: 'assistant', content: aiReply });
-        // Keep only last 20 entries (10 exchanges) to avoid memory bloat
-        if (history.length > 20) history.splice(0, history.length - 20);
+
 
         // Force sending AI reply back to the real phone number as a participant, bypassing @lid which drops messages
         let replyTarget = sender;

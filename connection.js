@@ -26,6 +26,9 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
             markOnlineOnConnect: false
         });
 
+        sock.companyId = companyId;
+        sock.sessionId = sessionId;
+
         if (onUpdate) onUpdate({ type: 'sock', data: sock, session: sessionId });
 
         sock.ev.on('creds.update', saveCreds);

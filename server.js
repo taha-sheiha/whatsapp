@@ -138,6 +138,19 @@ async function startServer() {
     await startAllSessions();
 
     app.use(express.json());
+
+    // Secure all WhatsApp endpoints with bot secret
+    const authMiddleware = (req, res, next) => {
+        const authHeader = req.headers['authorization'] || '';
+        const secret = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
+        if (authHeader !== `Bearer ${secret}`) {
+            logger.warn(`[Security Alert] Unauthorized access attempt to ${req.originalUrl} from ${req.ip}`);
+            return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+        }
+        next();
+    };
+    app.use('/api/whatsapp', authMiddleware);
+
     app.listen(PORT, () => {
         logger.info(`Server running on port ${PORT} 🚀`);
     });
