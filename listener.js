@@ -279,7 +279,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         const botName = response.data?.botName || 'نيورا دعم فني';
         const finalReply = aiReply + `\n- ${botName}`;
 
-        logger.info(`[REPLY] Sending reply to ${replyTarget}. History: ${history.length / 2} exchanges. ID: ${msgId}`);
+        logger.info(`[REPLY] Sending reply to ${replyTarget}. ID: ${msgId}`);
         await sendMessage(sock, replyTarget, finalReply, participantTag, null);
         logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
 
