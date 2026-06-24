@@ -6,13 +6,13 @@ const NodeCache = require('node-cache');
 // Cache to store recent messages for decryption retries / acks
 const recentMessagesCache = new NodeCache({ stdTTL: 3600 }); // keep messages for 1 hour
 
-async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'neura-v3') {
+async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'neura-v3', forceResetKeys = false) {
     try {
         const baileys = await import('@whiskeysockets/baileys');
         const makeWASocket = baileys.default || baileys.makeWASocket;
         const { DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileys;
 
-        const { state, saveCreds, flush, jidMap: loadedJidMap } = await getRemoteAuthState(companyId, sessionId);
+        const { state, saveCreds, flush, jidMap: loadedJidMap } = await getRemoteAuthState(companyId, sessionId, forceResetKeys);
         
         let { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({ 
             version: [2, 3000, 1015901307], 

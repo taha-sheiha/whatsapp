@@ -26,9 +26,9 @@ const jidMap = new Map();
 module.exports.jidMap = jidMap;
 module.exports.registerJidMapping = registerJidMapping;
 
-async function startSession(companyId, sessionId) {
+async function startSession(companyId, sessionId, forceResetKeys = false) {
     const combinedKey = `${companyId}:${sessionId}`;
-    if (sessions.has(combinedKey)) {
+    if (sessions.has(combinedKey) && !forceResetKeys) {
         const existing = sessions.get(combinedKey);
         if (existing.status === 'connected' || existing.status === 'connecting' || existing.status === 'reconnecting') {
             logger.info(`[${sessionId}] Session is already active (Status: ${existing.status}), skipping startSession.`);
@@ -76,7 +76,8 @@ async function startSession(companyId, sessionId) {
                 sessions.set(combinedKey, sess);
             },
             companyId,
-            sessionId
+            sessionId,
+            forceResetKeys
         );
         const sess = sessions.get(combinedKey) || {};
         sess.sock = sock;
@@ -217,10 +218,26 @@ async function startServer() {
 
     // POST /api/whatsapp/connect — start a session for a company
     app.post('/api/whatsapp/connect', async (req, res) => {
-        const { session, companyId } = req.body;
+        const { session, companyId, resetKeys } = req.body;
         if (!session || !companyId) return res.status(400).json({ error: 'session and companyId required' });
-        await startSession(companyId, session);
-        res.json({ success: true, message: 'Session starting' });
+        
+        if (resetKeys) {
+            const combinedKey = `${companyId}:${session}`;
+            const sess = sessions.get(combinedKey);
+            if (sess?.sock) {
+                try { sess.sock.end(); } catch (e) { /* ignore */ }
+            }
+            sessions.delete(combinedKey);
+            
+            // Delete local session folder to clean local key files as well
+            const sessionDir = path.join(__dirname, 'sessions', `${companyId}-${session}`);
+            if (fs.existsSync(sessionDir)) {
+                try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) { logger.error('Failed to delete session dir', e); }
+            }
+        }
+        
+        await startSession(companyId, session, !!resetKeys);
+        res.json({ success: true, message: resetKeys ? 'Session resetting keys and starting' : 'Session starting' });
     });
 
     // POST /api/whatsapp/send — send a manual message or media via WhatsApp
