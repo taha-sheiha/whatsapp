@@ -3,12 +3,16 @@ const logger = require('./logger');
 // Remote Session Config (via Cloudflare Worker)
 const WORKER_URL = process.env.WORKER_URL || 'https://neura-worker.tahasheiha.workers.dev';
 const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || `${WORKER_URL}/bot-session`;
-const BOT_SECRET = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
+const BOT_SECRET = process.env.BOT_SECRET;
+if (!BOT_SECRET) {
+    logger.error('[SECURITY ERROR] BOT_SECRET env variable is NOT set! Exiting immediately to prevent unauthorized access.');
+    process.exit(1);
+}
 
 async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetKeys = false) {
     const { proto, initAuthCreds, BufferJSON } = await import('@whiskeysockets/baileys');
 
-    let remoteData = { creds: null, keys: {} };
+    let remoteData = { creds: null, keys: {}, jidMap: {} };
 
     // Function to load from remote
     const loadFromRemote = async (forceResetKeys = false) => {
@@ -20,7 +24,9 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
                 const text = await res.text();
                 if (text) {
                     const parsed = JSON.parse(text, BufferJSON.reviver);
-                    remoteData = parsed.data || { creds: null, keys: {} };
+                    remoteData = parsed.data || { creds: null, keys: {}, jidMap: {} };
+                    if (!remoteData.keys) remoteData.keys = {};
+                    if (!remoteData.jidMap) remoteData.jidMap = {};
                     
                     if (forceResetKeys) {
                         logger.warn(`[${sessionId}] Force resetting session keys for conflict resolution...`);
@@ -65,7 +71,7 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
         saveTimeout = setTimeout(async () => {
             await saveToRemote();
             saveTimeout = null;
-        }, 1500); // 1.5s debounce delay
+        }, 200); // 200ms debounce delay (committed almost instantly to D1)
     };
 
     await loadFromRemote(forceResetKeys);
@@ -111,7 +117,16 @@ async function getRemoteAuthState(companyId, sessionId = 'neura-v3', forceResetK
         },
         saveCreds: async () => {
             saveToRemoteDebounced();
-        }
+        },
+        flush: async () => {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+                saveTimeout = null;
+                logger.info(`[${sessionId}] Flushing pending auth state to remote...`);
+                await saveToRemote();
+            }
+        },
+        jidMap: remoteData.jidMap || {}
     };
 }
 
@@ -137,4 +152,28 @@ async function listRemoteSessions() {
     }
 }
 
-module.exports = { getRemoteAuthState, listRemoteSessions };
+/**
+ * Completely wipe the remote auth state from Cloudflare D1 database.
+ * Used during logout / permanent disconnect to prevent key conflicts.
+ */
+async function deleteRemoteAuthState(companyId, sessionId = 'neura-v3') {
+    try {
+        const res = await fetch(`${WORKER_SESSION_URL}?id=${sessionId}&companyId=${companyId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${BOT_SECRET}` }
+        });
+        if (res.ok) {
+            logger.info(`[${sessionId}] Remote session state deleted successfully from D1 ☁️`);
+            return true;
+        } else {
+            const txt = await res.text();
+            logger.error(`Failed to delete remote session [${sessionId}] from D1: ${res.status} ${txt}`);
+            return false;
+        }
+    } catch (e) {
+        logger.error(`Failed to delete remote session [${sessionId}] from D1:`, e.message);
+        return false;
+    }
+}
+
+module.exports = { getRemoteAuthState, listRemoteSessions, deleteRemoteAuthState };

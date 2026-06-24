@@ -209,7 +209,10 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
 
         // Store the real JID (could be @lid) so manual replies use the correct address
         // Crucial: we map the wa-REALPHONE to the @lid sender!
-        try { getJidMap().set(chatId, sender); } catch(e) { /* non-critical */ }
+        try { 
+            const { registerJidMapping } = require('./server');
+            registerJidMapping(companyId, sessionId, chatId, sender);
+        } catch(e) { /* non-critical */ }
 
 
 
@@ -217,7 +220,8 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
         try {
             const botSecret = process.env.BOT_SECRET;
             if (!botSecret) {
-                logger.warn('[SECURITY] BOT_SECRET not set in environment — using insecure fallback!');
+                logger.error('[SECURITY ERROR] BOT_SECRET not set in environment! Cannot send to API backend.');
+                return;
             }
             response = await axios.post(targetUrl, {
                 question: text,
@@ -238,7 +242,7 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
                 fileName: fileName || undefined,
                 history: [] // Worker fetches full history directly from D1 database (getChatHistory)
             }, { 
-                headers: { 'Authorization': `Bearer ${process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024'}` },
+                headers: { 'Authorization': `Bearer ${botSecret}` },
                 timeout: 90000  // 90s — media processing via Gemini needs more time
             });
         } catch (apiError) {

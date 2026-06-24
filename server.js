@@ -3,7 +3,7 @@ const { connectToWhatsApp } = require('./connection');
 const { handleIncomingMessage } = require('./listener');
 const logger = require('./logger');
 const { sendMessage } = require('./sender');
-const { listRemoteSessions } = require('./session_remote');
+const { listRemoteSessions, deleteRemoteAuthState } = require('./session_remote');
 const fs = require('fs');
 const path = require('path');
 
@@ -12,7 +12,8 @@ const PORT = process.env.PORT || 3000;
 
 // [SECURITY CHECK]: BOT_SECRET must be set in environment, never rely on hardcoded fallback
 if (!process.env.BOT_SECRET) {
-    console.warn('[SECURITY WARNING] BOT_SECRET env variable is NOT set! Using insecure default. Set BOT_SECRET in your environment immediately.');
+    console.error('[SECURITY ERROR] BOT_SECRET env variable is NOT set! Exiting immediately to prevent unauthorized access.');
+    process.exit(1);
 }
 
 // Multi-account session registry: sessionId -> { sock, status, qr, pairingCode, pendingAction }
@@ -23,27 +24,44 @@ const pendingLogins = new Map();
 // This is critical for WhatsApp @lid accounts where the stored phone number != the actual JID
 const jidMap = new Map();
 module.exports.jidMap = jidMap;
+module.exports.registerJidMapping = registerJidMapping;
 
 async function startSession(companyId, sessionId) {
     const combinedKey = `${companyId}:${sessionId}`;
     if (sessions.has(combinedKey)) {
         const existing = sessions.get(combinedKey);
-        if (existing.status === 'connected') {
-            logger.info(`[${sessionId}] Already connected, skipping.`);
+        if (existing.status === 'connected' || existing.status === 'connecting' || existing.status === 'reconnecting') {
+            logger.info(`[${sessionId}] Session is already active (Status: ${existing.status}), skipping startSession.`);
             return;
         }
     }
 
     // Initialize session state
-    sessions.set(combinedKey, { sock: null, status: 'connecting', qr: null, pairingCode: null });
+    sessions.set(combinedKey, { sock: null, status: 'connecting', qr: null, pairingCode: null, jidMap: {} });
  
     try {
         const sock = await connectToWhatsApp(
             (sock, msg, sid) => handleIncomingMessage(sock, msg, companyId, null, sid),
             (update) => {
+                if (!sessions.has(combinedKey)) {
+                    logger.warn(`[${sessionId}] Received update for a deleted/unregistered session. Stopping.`);
+                    if (update.type === 'sock' && update.data) {
+                        try { update.data.end(); } catch (e) {}
+                    }
+                    return;
+                }
                 const sess = sessions.get(combinedKey) || {};
                 if (update.type === 'sock') {
                     sess.sock = update.data;
+                    sess.jidMap = update.jidMap || {};
+                    sess.flush = update.flush;
+                    sess.saveCreds = update.saveCreds;
+                    // Also populate the global jidMap for fast lookup
+                    if (update.jidMap) {
+                        for (const [k, v] of Object.entries(update.jidMap)) {
+                            jidMap.set(k, v);
+                        }
+                    }
                 } else if (update.type === 'qr') {
                     sess.qr = update.data;
                     sess.status = 'disconnected';
@@ -69,6 +87,22 @@ async function startSession(companyId, sessionId) {
         sess.status = 'error';
         sessions.set(combinedKey, sess);
     }
+}
+
+function registerJidMapping(companyId, sessionId, chatId, realJid) {
+    const combinedKey = `${companyId}:${sessionId}`;
+    const sess = sessions.get(combinedKey);
+    if (sess) {
+        if (!sess.jidMap) sess.jidMap = {};
+        if (sess.jidMap[chatId] !== realJid) {
+            sess.jidMap[chatId] = realJid;
+            if (typeof sess.saveCreds === 'function') {
+                sess.saveCreds();
+            }
+        }
+    }
+    // Also save to global jidMap for backward compatibility
+    jidMap.set(chatId, realJid);
 }
 
 
@@ -142,7 +176,7 @@ async function startServer() {
     // Secure all WhatsApp endpoints with bot secret
     const authMiddleware = (req, res, next) => {
         const authHeader = req.headers['authorization'] || '';
-        const secret = process.env.BOT_SECRET || 'NERIVA_MASTER_SECRET_2024';
+        const secret = process.env.BOT_SECRET;
         if (authHeader !== `Bearer ${secret}`) {
             logger.warn(`[Security Alert] Unauthorized access attempt to ${req.originalUrl} from ${req.ip}`);
             return res.status(401).json({ error: 'Unauthorized: Invalid token' });
@@ -291,6 +325,11 @@ async function startServer() {
         if (fs.existsSync(sessionDir)) {
             try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch (e) { logger.error('Failed to delete session dir', e); }
         }
+
+        // Force delete auth state from D1
+        await deleteRemoteAuthState(companyId, session).catch(err => {
+            logger.error(`[${session}] Failed to delete remote auth state on manual disconnect:`, err.message);
+        });
         
         res.json({ success: true });
     });
@@ -325,3 +364,22 @@ async function startServer() {
 startServer().catch(err => {
     logger.error('Server startup error:', err.message || err);
 });
+
+// Graceful Shutdown Handler
+async function gracefulShutdown() {
+    logger.info('Graceful shutdown initiated. Flushing all active session states...');
+    const flushPromises = [];
+    sessions.forEach((sess, key) => {
+        if (sess.sock && typeof sess.sock.flush === 'function') {
+            logger.info(`Flushing session before exit: ${key}`);
+            flushPromises.push(sess.sock.flush().catch(err => {
+                logger.error(`Failed to flush session ${key}: ${err.message}`);
+            }));
+        }
+    });
+    await Promise.all(flushPromises);
+    logger.info('All sessions flushed. Exiting.');
+    process.exit(0);
+}
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

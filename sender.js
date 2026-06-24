@@ -201,8 +201,17 @@ async function processJidQueue(jid) {
         // --- ANTI-BAN THROTTLE END ---
 
         logger.info(`[Sender] Sending to ${jid}${options?.participant ? ` (participant: ${options.participant})` : ''}...`);
-        await sock.sendMessage(jid, payload, options);
+        const sentMsg = await sock.sendMessage(jid, payload, options);
         logger.info(`[Sender] ✅ Sent to ${jid}`);
+
+        try {
+            const { recentMessagesCache } = require('./connection');
+            if (sentMsg && sentMsg.key?.id && recentMessagesCache) {
+                recentMessagesCache.set(sentMsg.key.id, sentMsg);
+            }
+        } catch (cacheErr) {
+            logger.error(`[Sender] Failed to cache sent message: ${cacheErr.message}`);
+        }
 
     } catch (error) {
         logger.error(`[Sender] ❌ Failed to send to ${jid}: ${error.message}`);

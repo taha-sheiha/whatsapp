@@ -1,6 +1,10 @@
 const qrcodeLib = require('qrcode');
 const logger = require('./logger');
-const { getRemoteAuthState } = require('./session_remote');
+const { getRemoteAuthState, deleteRemoteAuthState } = require('./session_remote');
+const NodeCache = require('node-cache');
+
+// Cache to store recent messages for decryption retries / acks
+const recentMessagesCache = new NodeCache({ stdTTL: 3600 }); // keep messages for 1 hour
 
 async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'neura-v3') {
     try {
@@ -8,7 +12,7 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
         const makeWASocket = baileys.default || baileys.makeWASocket;
         const { DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileys;
 
-        const { state, saveCreds } = await getRemoteAuthState(companyId, sessionId);
+        const { state, saveCreds, flush, jidMap: loadedJidMap } = await getRemoteAuthState(companyId, sessionId);
         
         let { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({ 
             version: [2, 3000, 1015901307], 
@@ -23,13 +27,17 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
             logger: logger.child({ module: 'baileys', level: 'silent' }),
             browser: Browsers.macOS('Desktop'),
             printQRInTerminal: false,
-            markOnlineOnConnect: false
+            markOnlineOnConnect: false,
+            getMessage: async (key) => {
+                const cached = recentMessagesCache.get(key.id);
+                return cached ? cached.message : undefined;
+            }
         });
 
         sock.companyId = companyId;
         sock.sessionId = sessionId;
 
-        if (onUpdate) onUpdate({ type: 'sock', data: sock, session: sessionId });
+        if (onUpdate) onUpdate({ type: 'sock', data: sock, session: sessionId, jidMap: loadedJidMap, flush, saveCreds });
 
         sock.ev.on('creds.update', saveCreds);
 
@@ -57,12 +65,24 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
                 logger.error(`[${sessionId}] Connection closed. Status: ${statusCode}, Reason: ${reason}`);
                 if (onUpdate) onUpdate({ type: 'status', data: isLoggedOut ? 'disconnected' : 'reconnecting', session: sessionId });
 
+                // Flush pending credentials/keys to remote database before attempting reconnect
+                if (flush) {
+                    logger.info(`[${sessionId}] Flushing pending auth state to remote storage...`);
+                    await flush().catch(err => logger.error(`[${sessionId}] Flush failed: ${err.message}`));
+                }
+
                 if (shouldReconnect) {
                     const delay = statusCode === DisconnectReason.restartRequired ? 1000 : 5000;
                     logger.info(`[${sessionId}] Reconnecting automatically in ${delay / 1000}s...`);
                     setTimeout(() => connectToWhatsApp(onMessage, onUpdate, companyId, sessionId), delay);
                 } else {
                     logger.warn(`[${sessionId}] Session logged out. Manual intervention required.`);
+                    if (isLoggedOut) {
+                        logger.info(`[${sessionId}] Permanent logout detected. Wiping credentials from remote database...`);
+                        deleteRemoteAuthState(companyId, sessionId).catch(err => {
+                            logger.error(`[${sessionId}] Failed to wipe remote credentials on logout:`, err.message);
+                        });
+                    }
                 }
 
             } else if (connection === 'open') {
@@ -74,6 +94,9 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             if (type !== 'notify' && type !== 'append') return;
             for (const msg of messages) {
+                if (msg.key?.id) {
+                    recentMessagesCache.set(msg.key.id, msg);
+                }
                 onMessage(sock, msg, sessionId).catch(err => {
                     logger.error(`[${sessionId}] Error processing message ${msg.key?.id}:`, err);
                 });
@@ -88,4 +111,4 @@ async function connectToWhatsApp(onMessage, onUpdate, companyId, sessionId = 'ne
     }
 }
 
-module.exports = { connectToWhatsApp };
+module.exports = { connectToWhatsApp, recentMessagesCache };
