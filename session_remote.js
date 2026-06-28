@@ -1,7 +1,7 @@
 const logger = require('./logger');
 
 // Remote Session Config (via Cloudflare Worker)
-const WORKER_URL = process.env.WORKER_URL || 'https://neura-worker.tahasheiha.workers.dev';
+const WORKER_URL = process.env.WORKER_URL || 'https://api.nereva.cc';
 const WORKER_SESSION_URL = process.env.WORKER_SESSION_URL || `${WORKER_URL}/bot-session`;
 const BOT_SECRET = process.env.BOT_SECRET;
 if (!BOT_SECRET) {

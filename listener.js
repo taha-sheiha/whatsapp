@@ -12,7 +12,7 @@ function getJidMap() {
 
 
 // Configuration
-const AI_API_URL = process.env.AI_API_URL || 'https://neura-worker.tahasheiha.workers.dev/chat';
+const AI_API_URL = process.env.AI_API_URL || 'https://api.nereva.cc/chat';
 const rateLimitCache = new NodeCache({ stdTTL: 60 });
 const messageIdCache = new NodeCache({ stdTTL: 3600 });
 
