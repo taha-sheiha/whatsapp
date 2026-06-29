@@ -3,6 +3,7 @@ const logger = require('./logger');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { sendMessage } = require('./sender');
 const NodeCache = require('node-cache');
+const sessionQueue = require('./queue');
 // Lazy-require to avoid circular dependency — jidMap is populated by server.js
 let _jidMap = null;
 function getJidMap() {
@@ -203,89 +204,106 @@ async function handleIncomingMessage(sock, msg, companyId, customApiUrl, session
 
         logger.info(`[PROCESS] Sending to AI | From: ${userName} | Msg: "${text.substring(0, 60)}" | ID: ${msgId}`);
 
-        // STEP 5: Call AI API
-        const targetUrl = customApiUrl || AI_API_URL;
-        const chatId = `wa-${realPhone}`;
+        // ENQUEUE THE HEAVY PROCESSING AND REPLY LOGIC
+        sessionQueue.enqueue(sessionId, async () => {
+            try {
+                // 1. Mark message as seen immediately to mimic human opening chat
+                logger.info(`[STEALTH] Marking message as read. ID: ${msgId}`);
+                await sock.readMessages([msg.key]).catch(e => logger.error(`[SEEN_ERR] ${e.message}`));
 
-        // Store the real JID (could be @lid) so manual replies use the correct address
-        // Crucial: we map the wa-REALPHONE to the @lid sender!
-        try { 
-            const { registerJidMapping } = require('./server');
-            registerJidMapping(companyId, sessionId, chatId, sender);
-        } catch(e) { /* non-critical */ }
+                // STEP 5: Call AI API
+                const targetUrl = customApiUrl || AI_API_URL;
+                const chatId = `wa-${realPhone}`;
 
+                try { 
+                    const { registerJidMapping } = require('./server');
+                    registerJidMapping(companyId, sessionId, chatId, sender);
+                } catch(e) { /* non-critical */ }
 
+                let response;
+                try {
+                    const botSecret = process.env.BOT_SECRET;
+                    if (!botSecret) {
+                        logger.error('[SECURITY ERROR] BOT_SECRET not set in environment! Cannot send to API backend.');
+                        return;
+                    }
+                    response = await axios.post(targetUrl, {
+                        question: text,
+                        chatId,
+                        companyId,
+                        userName,
+                        platform: 'whatsapp',
+                        accountName: sessionId || "WhatsApp",
+                        audioInput: audioBase64,
+                        audioMimeType: audioMimeType || undefined,
+                        isVoiceNote: isVoiceNote,
+                        imageInput: imageBase64,
+                        imageMimeType: imageMimeType || undefined,
+                        videoInput: videoBase64,
+                        videoMimeType: videoMimeType || undefined,
+                        fileInput: fileBase64,
+                        fileMimeType: fileMimeType || undefined,
+                        fileName: fileName || undefined,
+                        history: [] // Worker fetches full history directly from D1 database (getChatHistory)
+                    }, { 
+                        headers: { 'Authorization': `Bearer ${botSecret}` },
+                        timeout: 90000
+                    });
+                } catch (apiError) {
+                    const status = apiError.response?.status;
+                    const errBody = apiError.response?.data ? JSON.stringify(apiError.response.data) : apiError.message;
+                    logger.error(`[API_ERR] Status: ${status} | ${errBody} | ID: ${msgId}`);
+                    return;
+                }
 
-        let response;
-        try {
-            const botSecret = process.env.BOT_SECRET;
-            if (!botSecret) {
-                logger.error('[SECURITY ERROR] BOT_SECRET not set in environment! Cannot send to API backend.');
-                return;
+                // STEP 6: Validate AI Response
+                const aiReply = response.data?.reply;
+                const isPaused = response.data?.paused;
+                
+                if (isPaused) {
+                    logger.warn(`[PAUSED] Session is paused on worker side. No reply sent. ID: ${msgId}`);
+                    return;
+                }
+
+                if (!aiReply || aiReply.trim() === '') {
+                    logger.warn(`[NO_REPLY] AI returned empty/null reply. ID: ${msgId}`);
+                    return;
+                }
+
+                let replyTarget = sender;
+                let participantTag = null;
+                if (sender.includes('@lid') && realPhone && realPhone !== sender.split('@')[0]) {
+                    participantTag = `${realPhone}@s.whatsapp.net`;
+                }
+
+                const botName = response.data?.botName || 'نظام الرد الآلي';
+                const finalReply = aiReply + `\n- ${botName}`;
+
+                // --- STEALTH ANTI-BAN DELAYS AND TYPING ---
+                // Total delay 10s to 50s
+                const totalDelayMs = Math.floor(Math.random() * (50000 - 10000 + 1) + 10000); 
+                // Typing duration 5s to 15s (but capped by totalDelayMs)
+                const typingDurationMs = Math.min(totalDelayMs, Math.floor(Math.random() * (15000 - 5000 + 1) + 5000));
+                const waitBeforeTypingMs = Math.max(0, totalDelayMs - typingDurationMs);
+
+                logger.info(`[STEALTH] Waiting ${waitBeforeTypingMs}ms before typing for ID: ${msgId}`);
+                await new Promise(r => setTimeout(r, waitBeforeTypingMs));
+
+                logger.info(`[STEALTH] Simulating typing for ${typingDurationMs}ms... ID: ${msgId}`);
+                await sock.sendPresenceUpdate('composing', sender).catch(e => logger.error(`[PRESENCE_ERR] ${e.message}`));
+                await new Promise(r => setTimeout(r, typingDurationMs));
+                await sock.sendPresenceUpdate('paused', sender).catch(e => logger.error(`[PRESENCE_ERR] ${e.message}`));
+
+                // Send final message
+                logger.info(`[REPLY] Sending reply to ${replyTarget}. ID: ${msgId}`);
+                await sendMessage(sock, replyTarget, finalReply, participantTag, null);
+                logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
+
+            } catch(e) {
+                logger.error(`[QUEUE_TASK_ERR] Error in queue for ID ${msgId}: ${e.message}`);
+                if (e.stack) logger.error(e.stack);
             }
-            response = await axios.post(targetUrl, {
-                question: text,
-                chatId,
-                companyId,
-                userName,
-                platform: 'whatsapp',
-                accountName: sessionId || "WhatsApp",
-                audioInput: audioBase64,
-                audioMimeType: audioMimeType || undefined,
-                isVoiceNote: isVoiceNote,
-                imageInput: imageBase64,
-                imageMimeType: imageMimeType || undefined,
-                videoInput: videoBase64,
-                videoMimeType: videoMimeType || undefined,
-                fileInput: fileBase64,
-                fileMimeType: fileMimeType || undefined,
-                fileName: fileName || undefined,
-                history: [] // Worker fetches full history directly from D1 database (getChatHistory)
-            }, { 
-                headers: { 'Authorization': `Bearer ${botSecret}` },
-                timeout: 90000  // 90s — media processing via Gemini needs more time
-            });
-        } catch (apiError) {
-            const status = apiError.response?.status;
-            const errBody = apiError.response?.data ? JSON.stringify(apiError.response.data) : apiError.message;
-            logger.error(`[API_ERR] Status: ${status} | ${errBody} | ID: ${msgId}`);
-            return;
-        }
-
-        // STEP 6: Validate AI Response
-        const aiReply = response.data?.reply;
-        const isPaused = response.data?.paused;
-        const rawData = JSON.stringify(response.data).substring(0, 500);
-
-        logger.info(`[AI_DEBUG] Raw AI Reply: "${aiReply}"`);
-
-        if (isPaused) {
-            logger.warn(`[PAUSED] Session is paused on worker side. No reply sent. ID: ${msgId} | Data: ${rawData}`);
-            return;
-        }
-
-        if (!aiReply || aiReply.trim() === '') {
-            logger.warn(`[NO_REPLY] AI returned empty/null reply. ID: ${msgId} | Data: ${rawData}`);
-            return;
-        }
-
-
-
-        // Force sending AI reply back to the real phone number as a participant, bypassing @lid which drops messages
-        let replyTarget = sender;
-        let participantTag = null;
-        if (sender.includes('@lid') && realPhone && realPhone !== sender.split('@')[0]) {
-            logger.info(`[REPLY] Detected @lid. Using original sender but adding participant: ${realPhone}@s.whatsapp.net`);
-            participantTag = `${realPhone}@s.whatsapp.net`;
-        }
-
-        // Append AI signature with single newline (double newline causes WhatsApp @lid silent drops)
-        const botName = response.data?.botName || 'نيورا دعم فني';
-        const finalReply = aiReply + `\n- ${botName}`;
-
-        logger.info(`[REPLY] Sending reply to ${replyTarget}. ID: ${msgId}`);
-        await sendMessage(sock, replyTarget, finalReply, participantTag, null);
-        logger.info(`[DONE] ✅ Reply sent to ${replyTarget}. ID: ${msgId}`);
+        });
 
     } catch (error) {
         logger.error(`[CRASH] Unhandled error for ID ${msgId}: ${error.message}`);
